@@ -923,137 +923,63 @@ function drawTitle() {
 }
 
 function drawHowto() {
-    const t = Date.now();
-    // グラデ背景
-    const bg = ctx.createLinearGradient(0,0,GW,GH);
-    bg.addColorStop(0,'#1a0535'); bg.addColorStop(1,'#0d1f4a');
+    const bg = ctx.createLinearGradient(0,0,0,GH);
+    bg.addColorStop(0,'#0a0a2a'); bg.addColorStop(1,'#1a0a3a');
     ctx.fillStyle=bg; ctx.fillRect(0,0,GW,GH);
 
-    // キラキラ星
-    [[80,40],[200,20],[500,30],[700,15],[820,45],[150,460],[400,455],[650,465]].forEach(([sx,sy],i)=>{
-        const s = .5+.5*Math.sin(t/600+i);
-        ctx.fillStyle=`rgba(255,220,255,${s.toFixed(2)})`;
-        ctx.font=`${10+4*s}px serif`; ctx.textAlign='center';
-        ctx.fillText('✦',sx,sy);
-    });
+    ctx.fillStyle='rgba(255,220,0,0.15)'; ctx.fillRect(0,0,GW,48);
+    ctx.font='bold 18px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillStyle='#FFE040';
+    ctx.fillText(howtoPage===0 ? '📖 あそびかた　1/2' : '📖 あそびかた　2/2', GW/2, 24);
 
-    // キャビィ画像（左に大きく）
-    const img = playerCanvas || playerImg;
-    const IW=130, IH=130, IX=28, IY=GH/2-IW/2+10;
-    const bob = Math.sin(t/500)*5;
-    ctx.drawImage(img, IX, IY+bob, IW, IH);
+    ctx.textBaseline='top';
 
-    // 吹き出し
-    const bx=175, by=60, bw=640, bh=72;
-    ctx.fillStyle='#fff';
-    ctx.beginPath(); rrect(bx,by,bw,bh,14); ctx.fill();
-    // しっぽ（キャビィ側に向く三角）
-    ctx.beginPath();
-    ctx.moveTo(bx+12,by+bh); ctx.lineTo(bx-18,by+bh+22); ctx.lineTo(bx+40,by+bh);
-    ctx.fill();
-    ctx.font='bold 15px sans-serif'; ctx.textAlign='left'; ctx.textBaseline='top';
-    ctx.fillStyle='#330055';
-    const msgs = [
-        'ぼくキャビィ！いっしょに歯を全部ほり崩して\n虫歯王国を作ろう！',
-        'じかんがたつほどパワーUP！\n夜になったら最強モードになるよ！'
-    ];
-    const lines = msgs[howtoPage].split('\n');
-    lines.forEach((l,i)=>ctx.fillText(l, bx+16, by+10+i*26));
-
-    // ページ1: 操作カード
     if (howtoPage === 0) {
-        const cards = [
-            ['⬅️➡️','うごく','矢印で左右移動'],
-            ['⬆️','とぶ','ジャンプ（2段OK）'],
-            ['⛏️','ほる','歯の上でほるボタン'],
-            ['🦷','かくれる','穴の底で歯ブラシ回避'],
-            ['🍬','つよくなる','お菓子で攻撃力UP'],
+        const items = [
+            ['🎯', 'もくひょう', '7本の歯を全部掘り崩して虫歯王国を作れ！'],
+            ['⬅️➡️', 'いどう', '画面下の矢印ボタンで左右に動く'],
+            ['⬆️', 'ジャンプ', 'ジャンプボタンで飛ぶ（2段ジャンプOK！）'],
+            ['⛏️', 'ほる', '歯の上に乗って掘るボタンを押す'],
+            ['🦷', 'かくれる', '歯ブラシが来たら掘った穴の底に隠れろ！'],
         ];
-        const cols=[[175,148],[175,236],[175,324],[480,148],[480,236]];
-        cards.forEach(([icon,title,desc],i)=>{
-            const [cx2,cy2]=cols[i], cw=285, ch=74;
-            // カード背景
-            const cg=ctx.createLinearGradient(cx2,cy2,cx2,cy2+ch);
-            cg.addColorStop(0,'rgba(120,60,200,0.45)'); cg.addColorStop(1,'rgba(60,20,120,0.45)');
-            ctx.fillStyle=cg; ctx.beginPath(); rrect(cx2,cy2,cw,ch,12); ctx.fill();
-            ctx.strokeStyle='rgba(200,150,255,0.4)'; ctx.lineWidth=1.5;
-            ctx.beginPath(); rrect(cx2,cy2,cw,ch,12); ctx.stroke();
-            // アイコン
-            ctx.font='30px serif'; ctx.textAlign='left'; ctx.textBaseline='middle';
-            ctx.fillText(icon, cx2+12, cy2+ch/2);
-            // テキスト
-            ctx.font='bold 14px sans-serif'; ctx.fillStyle='#FFE040';
-            ctx.fillText(title, cx2+54, cy2+18);
-            ctx.font='12px sans-serif'; ctx.fillStyle='#ddd';
-            ctx.fillText(desc, cx2+54, cy2+42);
+        items.forEach(([icon, label, desc], i) => {
+            const y = 68 + i * 78;
+            ctx.fillStyle='rgba(255,255,255,0.07)';
+            ctx.beginPath(); rrect(30, y, GW-60, 68, 10); ctx.fill();
+            ctx.font='28px serif'; ctx.textAlign='left'; ctx.fillStyle='#FFF';
+            ctx.fillText(icon, 52, y+10);
+            ctx.font='bold 15px sans-serif'; ctx.fillStyle='#FFE040';
+            ctx.fillText(label, 95, y+8);
+            ctx.font='13px sans-serif'; ctx.fillStyle='#CCC';
+            ctx.fillText(desc.substring(0,22), 95, y+30);
+            if (desc.length > 22) ctx.fillText(desc.substring(22), 95, y+48);
         });
-        // 右下に目標
-        ctx.fillStyle='rgba(255,200,0,0.18)'; ctx.beginPath(); rrect(480,320,285,74,12); ctx.fill();
-        ctx.strokeStyle='rgba(255,200,0,0.5)'; ctx.lineWidth=1.5;
-        ctx.beginPath(); rrect(480,320,285,74,12); ctx.stroke();
-        ctx.font='28px serif'; ctx.textAlign='left'; ctx.textBaseline='middle';
-        ctx.fillText('🎯', 492, 357);
-        ctx.font='bold 14px sans-serif'; ctx.fillStyle='#FFE040'; ctx.fillText('もくひょう',538,338);
-        ctx.font='12px sans-serif'; ctx.fillStyle='#ddd'; ctx.fillText('7本の歯を全部崩せ！',538,362);
-
     } else {
-        // ページ2: 時間帯バー＋アイテム
-        // 時間帯バー
-        const bary=148, barH=70;
-        const phases=[
-            {x:175,w:180,c1:'#FF9944',c2:'#FFCC44',icon:'🌅',label:'あさ',desc:'ふつうの強さ'},
-            {x:358,w:195,c1:'#FF6622',c2:'#FF4444',icon:'🌇',label:'ゆうがた',desc:'ミッション発生！'},
-            {x:556,w:200,c1:'#223388',c2:'#110033',icon:'🌙',label:'よる',desc:'攻撃力MAX！最強に！'},
+        const items = [
+            ['🌅', 'あさ（0〜30秒）', '普通の攻撃力でスタート。歯ブラシに注意！'],
+            ['🌇', 'ゆうがた（30〜50秒）', 'ミッション発生！クリアでスコアボーナス'],
+            ['🌙', 'よる（50秒〜）', '攻撃力がUP！夜になるほど掘るのが速くなる！'],
+            ['🍬', 'おかし', '拾うと攻撃力UP＆スコアボーナス！'],
+            ['😈', 'スーパーモード', 'MAX強化で無敵！歯ブラシも怖くない！'],
         ];
-        phases.forEach(p=>{
-            const g=ctx.createLinearGradient(p.x,bary,p.x+p.w,bary);
-            g.addColorStop(0,p.c1); g.addColorStop(1,p.c2);
-            ctx.fillStyle=g; ctx.beginPath(); rrect(p.x,bary,p.w,barH,10); ctx.fill();
-            ctx.strokeStyle='rgba(255,255,255,0.3)'; ctx.lineWidth=1;
-            ctx.beginPath(); rrect(p.x,bary,p.w,barH,10); ctx.stroke();
-            ctx.font='22px serif'; ctx.textAlign='center';
-            ctx.fillText(p.icon, p.x+p.w/2, bary+14);
-            ctx.font='bold 13px sans-serif'; ctx.fillStyle='#FFF';
-            ctx.fillText(p.label, p.x+p.w/2, bary+38);
-            ctx.font='11px sans-serif'; ctx.fillStyle='rgba(255,255,255,0.85)';
-            ctx.fillText(p.desc, p.x+p.w/2, bary+58);
-        });
-        // 矢印で強くなることを表示
-        ctx.font='bold 20px sans-serif'; ctx.fillStyle='rgba(255,255,0,0.7)';
-        ctx.textAlign='center';
-        ctx.fillText('どんどん強くなる →→→', GW/2+50, bary+barH+22);
-
-        // アイテムカード
-        const items=[
-            ['🍬','お菓子','拾うと攻撃力UP＆スコアボーナス！',175,240],
-            ['🦷','歯ブラシ','穴の底に隠れてかわせ！',175,328],
-            ['😈','スーパーモード','MAX強化で無敵！怖いものなし！',480,240],
-            ['⛏️','掘れば勝ち','全部崩したら虫歯王国完成！',480,328],
-        ];
-        items.forEach(([icon,title,desc,cx2,cy2])=>{
-            const cw=285,ch=74;
-            ctx.fillStyle='rgba(100,50,180,0.35)'; ctx.beginPath(); rrect(cx2,cy2,cw,ch,12); ctx.fill();
-            ctx.strokeStyle='rgba(180,120,255,0.35)'; ctx.lineWidth=1.5;
-            ctx.beginPath(); rrect(cx2,cy2,cw,ch,12); ctx.stroke();
-            ctx.font='28px serif'; ctx.textAlign='left'; ctx.textBaseline='middle';
-            ctx.fillText(icon, cx2+12, cy2+ch/2);
-            ctx.font='bold 14px sans-serif'; ctx.fillStyle='#FFE040'; ctx.fillText(title, cx2+54, cy2+18);
-            ctx.font='11px sans-serif'; ctx.fillStyle='#ccc'; ctx.fillText(desc, cx2+54, cy2+42);
+        items.forEach(([icon, label, desc], i) => {
+            const y = 68 + i * 78;
+            ctx.fillStyle='rgba(255,255,255,0.07)';
+            ctx.beginPath(); rrect(30, y, GW-60, 68, 10); ctx.fill();
+            ctx.font='28px serif'; ctx.textAlign='left'; ctx.fillStyle='#FFF';
+            ctx.fillText(icon, 52, y+10);
+            ctx.font='bold 15px sans-serif'; ctx.fillStyle='#FFE040';
+            ctx.fillText(label, 95, y+8);
+            ctx.font='13px sans-serif'; ctx.fillStyle='#CCC';
+            ctx.fillText(desc.substring(0,22), 95, y+30);
+            if (desc.length > 22) ctx.fillText(desc.substring(22), 95, y+48);
         });
     }
 
-    // ページドット
-    [0,1].forEach(i=>{
-        ctx.fillStyle = i===howtoPage ? '#FFE040' : 'rgba(255,255,255,0.3)';
-        ctx.beginPath(); ctx.arc(GW/2-12+i*24, GH-18, 5, 0, Math.PI*2); ctx.fill();
-    });
-
-    // タップで次へ（点滅）
-    const pulse=.6+.4*Math.sin(t/400);
+    const pulse = .75 + .25*Math.sin(Date.now()/400);
     ctx.save(); ctx.globalAlpha=pulse;
-    ctx.font='bold 16px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='bottom';
-    ctx.fillStyle='#FFE040';
-    ctx.fillText(howtoPage===0?'👆 タップで次へ':'👆 タップしてスタート！', GW/2, GH-28);
+    ctx.font='bold 17px sans-serif'; ctx.textAlign='center'; ctx.fillStyle='#FFE040';
+    ctx.fillText(howtoPage===0 ? '👆 タップで次へ' : '👆 タップしてスタート！', GW/2, GH-36);
     ctx.restore();
 }
 
