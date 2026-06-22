@@ -894,32 +894,77 @@ function rrect(x,y,w,h,r) {
 
 function drawTitle() {
     mkTeeth();
+    const now = Date.now();
+
+    // 背景グラデ（夜空っぽくかわいく）
     const bg = ctx.createLinearGradient(0,0,0,GH);
-    bg.addColorStop(0,'#C8F0FF'); bg.addColorStop(1,'#FFB8B8');
+    bg.addColorStop(0,'#1a0535'); bg.addColorStop(0.6,'#2d0a5a'); bg.addColorStop(1,'#0d0d2b');
     ctx.fillStyle=bg; ctx.fillRect(0,0,GW,GH);
+
+    // 歯を薄く表示
     for (const t of TEETH) { drawTooth(t); }
-    ctx.fillStyle='rgba(0,0,30,.75)'; ctx.fillRect(0,0,GW,GH);
+    ctx.fillStyle='rgba(0,0,20,.82)'; ctx.fillRect(0,0,GW,GH);
 
-    ctx.font='bold 40px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
-    ctx.strokeStyle='#AA3300'; ctx.lineWidth=5;
-    ctx.strokeText('掘れ掘れ虫歯菌！',GW/2,GH/2-65);
-    ctx.fillStyle='#FFE040'; ctx.fillText('掘れ掘れ虫歯菌！',GW/2,GH/2-65);
+    // キラキラ星
+    [[60,35],[180,22],[310,50],[520,18],[680,38],[790,25],[140,450],[430,460],[720,445]].forEach(([sx,sy],i)=>{
+        const s = .4+.6*Math.abs(Math.sin(now/700+i*1.3));
+        ctx.fillStyle=`rgba(255,220,255,${s.toFixed(2)})`;
+        ctx.font=`${8+6*s|0}px serif`; ctx.textAlign='center'; ctx.textBaseline='middle';
+        ctx.fillText('✦',sx,sy);
+    });
 
-    ctx.font='bold 20px sans-serif';
-    ctx.strokeStyle='rgba(0,0,0,.5)'; ctx.lineWidth=2;
-    ctx.strokeText('〜目指せ虫歯王国〜',GW/2,GH/2-22);
-    ctx.fillStyle='#FFF'; ctx.fillText('〜目指せ虫歯王国〜',GW/2,GH/2-22);
+    // キャビィ画像（左側にドーン）
+    const IW=160, IH=160;
+    const IX=55, IY=GH/2-IH/2+5;
+    const bob = Math.sin(now/600)*7;
+    // 輝きオーラ
+    const aura = ctx.createRadialGradient(IX+IW/2,IY+IH/2+bob,10,IX+IW/2,IY+IH/2+bob,95);
+    aura.addColorStop(0,'rgba(180,80,255,0.45)'); aura.addColorStop(1,'rgba(180,80,255,0)');
+    ctx.fillStyle=aura; ctx.beginPath(); ctx.arc(IX+IW/2,IY+IH/2+bob,95,0,Math.PI*2); ctx.fill();
+    ctx.drawImage(playerImg, IX, IY+bob, IW, IH);
 
-    ctx.font='48px serif'; ctx.fillText('🦠⛏️🦷',GW/2,GH/2+30);
+    // タイトルロゴ（右側）
+    const tx = GW/2+80, ty = GH/2-70;
+    // タイトル影
+    ctx.font='bold 42px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.shadowColor='rgba(255,100,0,0.9)'; ctx.shadowBlur=18;
+    ctx.strokeStyle='#6600AA'; ctx.lineWidth=7;
+    ctx.strokeText('掘れ掘れ虫歯菌！',tx,ty);
+    ctx.shadowBlur=0;
+    // タイトル本文（グラデ）
+    const tg = ctx.createLinearGradient(tx-180,ty-20,tx+180,ty+20);
+    tg.addColorStop(0,'#FFE040'); tg.addColorStop(0.5,'#FF88FF'); tg.addColorStop(1,'#FFE040');
+    ctx.fillStyle=tg; ctx.fillText('掘れ掘れ虫歯菌！',tx,ty);
 
-    const pulse = .75 + .25*Math.sin(Date.now()/400);
+    // サブタイトル
+    ctx.font='bold 20px sans-serif'; ctx.textAlign='center';
+    ctx.strokeStyle='rgba(0,0,0,.6)'; ctx.lineWidth=3;
+    ctx.strokeText('〜目指せ虫歯王国〜',tx,ty+46);
+    ctx.fillStyle='#EEBBff'; ctx.fillText('〜目指せ虫歯王国〜',tx,ty+46);
+
+    // 吹き出し（キャビィのセリフ）
+    const bx=240, by=GH/2+65, bw=260, bh=48;
+    ctx.fillStyle='rgba(255,255,255,0.92)';
+    ctx.beginPath(); rrect(bx,by,bw,bh,14); ctx.fill();
+    ctx.beginPath(); // しっぽ
+    ctx.moveTo(bx+30,by); ctx.lineTo(bx+15,by-18); ctx.lineTo(bx+55,by);
+    ctx.fill();
+    ctx.font='bold 13px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillStyle='#330055';
+    ctx.fillText('いっしょに虫歯王国を作ろう！',bx+bw/2,by+bh/2);
+
+    // スタートボタン
+    const pulse = .75+.25*Math.sin(now/400);
+    const btnX=tx-130, btnY=ty+80, btnW=260, btnH=52;
     ctx.save(); ctx.globalAlpha=pulse;
-    ctx.fillStyle='#FFE040'; ctx.font='bold 21px sans-serif';
-    ctx.fillText('👆 タップしてスタート！',GW/2,GH/2+95);
+    const bg2 = ctx.createLinearGradient(btnX,btnY,btnX,btnY+btnH);
+    bg2.addColorStop(0,'#cc44ff'); bg2.addColorStop(1,'#7700cc');
+    ctx.fillStyle=bg2; ctx.beginPath(); rrect(btnX,btnY,btnW,btnH,26); ctx.fill();
+    ctx.strokeStyle='rgba(255,200,255,0.7)'; ctx.lineWidth=2;
+    ctx.beginPath(); rrect(btnX,btnY,btnW,btnH,26); ctx.stroke();
+    ctx.font='bold 20px sans-serif'; ctx.fillStyle='#FFF'; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText('👆 タップしてスタート！',tx,btnY+btnH/2);
     ctx.restore();
-
-    ctx.fillStyle='rgba(200,200,255,.7)'; ctx.font='12px sans-serif';
-    ctx.fillText('歯ブラシが来たら穴の底へ潜れ！お菓子を集めて強化！',GW/2,GH/2+128);
 }
 
 function drawHowto() {
