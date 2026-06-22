@@ -89,7 +89,8 @@ let TEETH = [];
 
 const P = { x: 0, y: 0, w: 36, h: 36, vx: 0, vy: 0, onGround: false, jumps: 0, stunned: 0, lockedTooth: null, lockedCol: -1 };
 
-const brush = { active: false, x: -200, dir: 1, speed: 290, warning: 0 };
+let brushes = [];
+let brushWarning = 0;
 let nextBrushTime = 15;
 
 const keys = { left: false, right: false, dig: false };
@@ -130,7 +131,7 @@ function startGame() {
     TEETH.forEach(t => { t.hp = t.mhp; t.cols = [{depth:0},{depth:0}]; });
     P.x = TEETH[0].x + 6; P.y = GY - TEETH[0].h - P.h;
     P.vx = P.vy = 0; P.onGround = false; P.jumps = 0; P.stunned = 0; P.lockedTooth = null; P.lockedCol = -1;
-    brush.active = false; brush.warning = 0; nextBrushTime = 8;
+    brushes = []; brushWarning = 0; nextBrushTime = 8;
     candies.length = 0; popups.length = 0; dustParticles.length = 0;
     candyTimer = 1.5; autoScoreTimer = 0;
     gameState = 'play';
@@ -284,31 +285,39 @@ function tryDig() {
 }
 
 function updateBrush(dt, elapsed) {
-    if (!brush.active && brush.warning <= 0 && elapsed >= nextBrushTime) {
-        brush.warning = 0.8; nextBrushTime += 12;
+    const isNight = elapsed >= 58;
+    const interval = isNight ? 5 : 12;
+    const spd = isNight ? 370 : 290;
+
+    if (brushWarning <= 0 && elapsed >= nextBrushTime) {
+        brushWarning = 0.8;
+        nextBrushTime += interval;
     }
-    if (brush.warning > 0) {
-        brush.warning -= dt;
-        if (brush.warning <= 0 && !brush.active) { brush.active = true; brush.x = -210; brush.dir = 1; }
+    if (brushWarning > 0) {
+        brushWarning -= dt;
+        if (brushWarning <= 0) { brushes.push({ x: -210, dir: 1, speed: spd }); }
     }
-    if (!brush.active) return;
-    brush.x += brush.dir * brush.speed * dt;
-    if (brush.x > GW + 50) brush.dir = -1;
-    if (brush.x < -210 && brush.dir < 0) { brush.active = false; return; }
-    if (P.stunned > 0) return;
-    const bx = brush.x, bw = 170, by = GY - 85, bh = 52;
-    if (!(P.x + P.w > bx && P.x < bx + bw && P.y + P.h > by && P.y < by + bh)) return;
-    let safe = false;
-    const foot = P.y + P.h;
-    for (const t of TEETH) {
-        if (t.hp <= 0) continue;
-        if (P.x + P.w > t.x && P.x < t.x + t.w && foot > GY - t.h + SAFE_DEPTH) { safe = true; break; }
-    }
-    if (!safe) {
-        const pen = brushPenaltyHalf ? 5 : 10;
-        P.stunned = 2;
-        score = Math.max(0, score - pen);
-        spawnPopup(P.x + P.w / 2, P.y - 10, '-' + pen + '点！', '#FF5555');
+
+    for (let i = brushes.length - 1; i >= 0; i--) {
+        const b = brushes[i];
+        b.x += b.dir * b.speed * dt;
+        if (b.x > GW + 50) b.dir = -1;
+        if (b.x < -210 && b.dir < 0) { brushes.splice(i, 1); continue; }
+        if (P.stunned > 0) continue;
+        const bx = b.x, bw = 170, by = GY - 85, bh = 52;
+        if (!(P.x + P.w > bx && P.x < bx + bw && P.y + P.h > by && P.y < by + bh)) continue;
+        let safe = false;
+        const foot = P.y + P.h;
+        for (const t of TEETH) {
+            if (t.hp <= 0) continue;
+            if (P.x + P.w > t.x && P.x < t.x + t.w && foot > GY - t.h + SAFE_DEPTH) { safe = true; break; }
+        }
+        if (!safe) {
+            const pen = brushPenaltyHalf ? 5 : 10;
+            P.stunned = 2;
+            score = Math.max(0, score - pen);
+            spawnPopup(P.x + P.w / 2, P.y - 10, '-' + pen + '点！', '#FF5555');
+        }
     }
 }
 
@@ -558,16 +567,17 @@ function drawToothHUD(t) {
     ctx.fillText(t.label + (t.hp <= 0 ? ' 🖤' : ''), x+w/2, by-1);
 }
 function drawBrush() {
-    if (!brush.active) return;
-    const bx = brush.x, bw = 170, by = GY-85, bh = 22;
-    ctx.save();
-    ctx.fillStyle = '#8B4513'; ctx.fillRect(brush.dir > 0 ? bx-55 : bx+bw, by+5, 55, 12);
-    ctx.fillStyle = '#2266CC'; ctx.fillRect(bx, by, bw, bh);
-    ctx.fillStyle = 'rgba(255,255,255,.3)'; ctx.fillRect(bx, by, bw, bh*.35);
-    ctx.strokeStyle = '#eee'; ctx.lineWidth = 2;
-    for (let i = 4; i < bw; i += 7) { ctx.beginPath(); ctx.moveTo(bx+i,by+bh); ctx.lineTo(bx+i,by+bh+16); ctx.stroke(); }
-    ctx.font='20px serif'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText('🪥',bx+bw/2,by+bh/2);
-    ctx.restore();
+    for (const b of brushes) {
+        const bx = b.x, bw = 170, by = GY-85, bh = 22;
+        ctx.save();
+        ctx.fillStyle = '#8B4513'; ctx.fillRect(b.dir > 0 ? bx-55 : bx+bw, by+5, 55, 12);
+        ctx.fillStyle = '#2266CC'; ctx.fillRect(bx, by, bw, bh);
+        ctx.fillStyle = 'rgba(255,255,255,.3)'; ctx.fillRect(bx, by, bw, bh*.35);
+        ctx.strokeStyle = '#eee'; ctx.lineWidth = 2;
+        for (let i = 4; i < bw; i += 7) { ctx.beginPath(); ctx.moveTo(bx+i,by+bh); ctx.lineTo(bx+i,by+bh+16); ctx.stroke(); }
+        ctx.font='20px serif'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText('🪥',bx+bw/2,by+bh/2);
+        ctx.restore();
+    }
 }
 function drawCandies() {
     ctx.font='48px serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
@@ -1140,8 +1150,8 @@ function drawPlay() {
 
     drawPopups();
 
-    if (brush.warning > 0) {
-        const ph = Math.sin(brush.warning*28);
+    if (brushWarning > 0) {
+        const ph = Math.sin(brushWarning*28);
         ctx.fillStyle=`rgba(255,0,0,${(.22+.18*ph).toFixed(2)})`; ctx.fillRect(0,0,GW,GH);
         ctx.fillStyle='#FFE040'; ctx.font='bold 24px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
         ctx.fillText('⚠️ 歯ブラシ接近！！',GW/2,GY-110);
