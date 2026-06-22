@@ -92,6 +92,8 @@ const P = { x: 0, y: 0, w: 36, h: 36, vx: 0, vy: 0, onGround: false, jumps: 0, s
 let brushes = [];
 let brushWarning = 0;
 let nextBrushTime = 15;
+let dropBrushes = [];
+let nextDropTime = 20;
 
 const keys = { left: false, right: false, dig: false };
 let score = 0;
@@ -132,6 +134,7 @@ function startGame() {
     P.x = TEETH[0].x + 6; P.y = GY - TEETH[0].h - P.h;
     P.vx = P.vy = 0; P.onGround = false; P.jumps = 0; P.stunned = 0; P.lockedTooth = null; P.lockedCol = -1;
     brushes = []; brushWarning = 0; nextBrushTime = 8;
+    dropBrushes = []; nextDropTime = 20;
     candies.length = 0; popups.length = 0; dustParticles.length = 0;
     candyTimer = 1.5; autoScoreTimer = 0;
     gameState = 'play';
@@ -321,6 +324,35 @@ function updateBrush(dt, elapsed) {
     }
 }
 
+function updateDropBrush(dt, elapsed) {
+    const isNight = elapsed >= 58;
+    const dropInterval = isNight ? 5 : 14;
+    const dropSpeed   = isNight ? 520 : 380;
+
+    if (elapsed >= nextDropTime) {
+        const tx = 60 + Math.random() * (GW - 120);
+        dropBrushes.push({ x: tx, y: -110, warning: 0.9, active: false, speed: dropSpeed });
+        nextDropTime += dropInterval;
+    }
+
+    for (let i = dropBrushes.length - 1; i >= 0; i--) {
+        const b = dropBrushes[i];
+        if (!b.active) {
+            b.warning -= dt;
+            if (b.warning <= 0) b.active = true;
+            continue;
+        }
+        b.y += b.speed * dt;
+        if (b.y > GY + 30) { dropBrushes.splice(i, 1); continue; }
+        if (P.stunned > 0) continue;
+        if (!(P.x + P.w > b.x - 13 && P.x < b.x + 13 && P.y + P.h > b.y + 20 && P.y < b.y + 95)) continue;
+        const pen = brushPenaltyHalf ? 5 : 10;
+        P.stunned = 2;
+        score = Math.max(0, score - pen);
+        spawnPopup(P.x + P.w / 2, P.y - 10, '-' + pen + '点！', '#FF5555');
+    }
+}
+
 function updateCandies(dt) {
     candyTimer -= dt;
     if (candyTimer <= 0) {
@@ -456,6 +488,7 @@ function updatePlay(dt) {
 
     updateCandies(dt);
     updateBrush(dt, elapsed);
+    updateDropBrush(dt, elapsed);
 }
 
 function update(dt) {
@@ -579,6 +612,38 @@ function drawBrush() {
         ctx.restore();
     }
 }
+function drawDropBrush() {
+    for (const b of dropBrushes) {
+        ctx.save();
+        if (!b.active) {
+            // 落下予告：地面に赤い影
+            const pulse = 0.4 + 0.4 * Math.sin(Date.now() / 70);
+            ctx.globalAlpha = pulse;
+            ctx.fillStyle = '#FF3333';
+            ctx.beginPath(); ctx.ellipse(b.x, GY - 3, 16, 5, 0, 0, Math.PI * 2); ctx.fill();
+            // 上端に▼矢印
+            ctx.globalAlpha = pulse * 0.9;
+            ctx.fillStyle = '#FFE040';
+            ctx.font = 'bold 18px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+            ctx.fillText('▼', b.x, 4);
+            ctx.restore();
+            continue;
+        }
+        ctx.translate(b.x, b.y);
+        // 柄（茶色・縦）
+        ctx.fillStyle = '#8B4513'; ctx.fillRect(-5, 0, 10, 48);
+        // ヘッド（青）
+        ctx.fillStyle = '#2266CC'; ctx.fillRect(-12, 48, 24, 22);
+        ctx.fillStyle = 'rgba(255,255,255,.3)'; ctx.fillRect(-12, 48, 24, 8);
+        // 毛（下方向）
+        ctx.strokeStyle = '#eee'; ctx.lineWidth = 2;
+        for (let xi = -9; xi <= 9; xi += 4) { ctx.beginPath(); ctx.moveTo(xi, 70); ctx.lineTo(xi, 88); ctx.stroke(); }
+        ctx.font = '14px serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText('🪥', 0, 34);
+        ctx.restore();
+    }
+}
+
 function drawCandies() {
     ctx.font='48px serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
     for (const c of candies) ctx.fillText(c.emoji, c.x, c.y + Math.sin(c.age*c.floatSpeed+c.floatOffset)*12);
@@ -1128,7 +1193,7 @@ function drawPlay() {
     ctx.fillStyle=bg.gl; ctx.fillRect(0,GY,GW,3);
 
     for (const t of TEETH) { drawTooth(t); drawCols(t); drawToothFace(t); drawToothHUD(t); }
-    drawCandies(); drawBrush();
+    drawCandies(); drawBrush(); drawDropBrush();
 
     for (const d of dustParticles) {
         const a = d.life/d.maxLife;
