@@ -100,6 +100,7 @@ const dustParticles = [], candies = [], popups = [];
 let candyTimer = 1.5, autoScoreTimer = 0;
 
 let gameState = 'title';
+let howtoPage = 0;
 let clearTime = 0;
 let superMode = false, superModeAnnounced = false;
 let candyDouble = false, brushPenaltyHalf = false;
@@ -173,7 +174,12 @@ function getCanvasXY(e) {
     };
 }
 function onCanvasTap(x, y) {
-    if (gameState === 'title') { startGame(); return; }
+    if (gameState === 'title') { howtoPage = 0; gameState = 'howto'; return; }
+    if (gameState === 'howto') {
+        howtoPage++;
+        if (howtoPage >= 2) { startGame(); }
+        return;
+    }
     if (gameState === 'clear') { gameState = 'title'; setButtons(false); return; }
     if (gameState === 'mini')  { handleMiniTap(x, y); }
 }
@@ -916,6 +922,73 @@ function drawTitle() {
     ctx.fillText('歯ブラシが来たら穴の底へ潜れ！お菓子を集めて強化！',GW/2,GH/2+128);
 }
 
+function drawHowto() {
+    // 背景
+    const bg = ctx.createLinearGradient(0,0,0,GH);
+    bg.addColorStop(0,'#0a0a2a'); bg.addColorStop(1,'#1a0a3a');
+    ctx.fillStyle=bg; ctx.fillRect(0,0,GW,GH);
+
+    // タイトルバー
+    ctx.fillStyle='rgba(255,220,0,0.15)'; ctx.fillRect(0,0,GW,48);
+    ctx.font='bold 18px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillStyle='#FFE040';
+    ctx.fillText(howtoPage===0 ? '📖 あそびかた　1/2' : '📖 あそびかた　2/2', GW/2, 24);
+
+    ctx.textBaseline='top';
+
+    if (howtoPage === 0) {
+        // --- ページ1: 操作・目標 ---
+        const items = [
+            ['🎯', 'もくひょう', '7本の歯を全部掘り崩して虫歯王国を作れ！'],
+            ['⬅️➡️', 'いどう', '画面下の矢印ボタンで左右に動く'],
+            ['⬆️', 'ジャンプ', 'ジャンプボタンで飛ぶ（2段ジャンプOK！）'],
+            ['⛏️', 'ほる', '歯の上に乗って掘るボタンを押す'],
+            ['🦷', 'かくれる', '歯ブラシが来たら掘った穴の底に隠れろ！'],
+        ];
+        items.forEach(([icon, label, desc], i) => {
+            const y = 68 + i * 78;
+            ctx.fillStyle='rgba(255,255,255,0.07)';
+            ctx.beginPath(); rrect(30, y, GW-60, 68, 10); ctx.fill();
+            ctx.font='28px serif'; ctx.textAlign='left'; ctx.fillStyle='#FFF';
+            ctx.fillText(icon, 52, y+10);
+            ctx.font='bold 15px sans-serif'; ctx.fillStyle='#FFE040';
+            ctx.fillText(label, 95, y+8);
+            ctx.font='13px sans-serif'; ctx.fillStyle='#CCC';
+            // 長い説明は折り返し
+            ctx.fillText(desc.substring(0,22), 95, y+30);
+            if (desc.length > 22) ctx.fillText(desc.substring(22), 95, y+48);
+        });
+    } else {
+        // --- ページ2: 時間帯・アイテム ---
+        const items = [
+            ['🌅', 'あさ（0〜30秒）', '普通の攻撃力でスタート。歯ブラシに注意！'],
+            ['🌇', 'ゆうがた（30〜50秒）', 'ミッション発生！クリアでスコアボーナス'],
+            ['🌙', 'よる（50秒〜）', '攻撃力がUP！夜になるほど掘るのが速くなる！'],
+            ['🍬', 'おかし', '拾うと攻撃力UP＆スコアボーナス！'],
+            ['😈', 'スーパーモード', 'MAX強化で無敵！歯ブラシも怖くない！'],
+        ];
+        items.forEach(([icon, label, desc], i) => {
+            const y = 68 + i * 78;
+            ctx.fillStyle='rgba(255,255,255,0.07)';
+            ctx.beginPath(); rrect(30, y, GW-60, 68, 10); ctx.fill();
+            ctx.font='28px serif'; ctx.textAlign='left'; ctx.fillStyle='#FFF';
+            ctx.fillText(icon, 52, y+10);
+            ctx.font='bold 15px sans-serif'; ctx.fillStyle='#FFE040';
+            ctx.fillText(label, 95, y+8);
+            ctx.font='13px sans-serif'; ctx.fillStyle='#CCC';
+            ctx.fillText(desc.substring(0,22), 95, y+30);
+            if (desc.length > 22) ctx.fillText(desc.substring(22), 95, y+48);
+        });
+    }
+
+    // タップで次へ
+    const pulse = .75 + .25*Math.sin(Date.now()/400);
+    ctx.save(); ctx.globalAlpha=pulse;
+    ctx.font='bold 17px sans-serif'; ctx.textAlign='center'; ctx.fillStyle='#FFE040';
+    ctx.fillText(howtoPage===0 ? '👆 タップで次へ' : '👆 タップしてスタート！', GW/2, GH-36);
+    ctx.restore();
+}
+
 function drawMini() {
     const elapsed = (Date.now() - t0) / 1000;
     const bg = ctx.createLinearGradient(0,0,0,GH);
@@ -1124,6 +1197,7 @@ function drawClear() {
 
 function draw() {
     if (gameState === 'title') { drawTitle(); return; }
+    if (gameState === 'howto') { drawHowto(); return; }
     if (gameState === 'mini')  { drawMini();  return; }
     if (gameState === 'clear') { drawClear(); return; }
     drawPlay();
