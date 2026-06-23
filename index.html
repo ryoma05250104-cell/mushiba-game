@@ -24,6 +24,7 @@ canvas { display: block; }
 </style>
 </head>
 <body>
+<div id="viewCounter" style="position:fixed;top:6px;right:8px;background:rgba(0,0,0,.72);color:#FFE040;font:bold 13px sans-serif;padding:4px 12px;border-radius:14px;z-index:200;pointer-events:none;">👁 ...</div>
 <div id="wrap">
     <canvas id="c" width="854" height="480"></canvas>
 </div>
@@ -1327,6 +1328,15 @@ function loop(ts) {
     requestAnimationFrame(loop);
 }
 requestAnimationFrame(loop);
+
+// 閲覧数カウンター（counterapi.dev 無料API）
+fetch('https://api.counterapi.dev/v1/mushibagame-ryoma/views/up')
+  .then(r => r.json())
+  .then(d => {
+    const el = document.getElementById('viewCounter');
+    if (el) el.textContent = '👁 閲覧数: ' + d.count.toLocaleString();
+  })
+  .catch(() => {});
 </script>
 </body>
 </html>
