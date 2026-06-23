@@ -770,7 +770,7 @@ function drawCutIn(remain) {
 }
 function drawMiniCutIn(remain) {
     const TOTAL=2.2, el=TOTAL-remain;
-    const PW=480, PH=170, TX=(GW-PW)/2, PY=(GH-PH)/2;
+    const PW=480, PH=170, TX=(GW-PW)/2, PY=(GH-PH)/2 - 19;
     let px, alpha=1;
     if (el < 0.25) {
         const e=1-Math.pow(1-el/0.25,3); px=GW-(GW-TX)*e;
