@@ -1177,14 +1177,6 @@ function drawPlay() {
         ctx.fillStyle=`rgba(255,255,255,${sa.toFixed(2)})`;
         for (const [sx,sy] of STARS) { ctx.beginPath(); ctx.arc(sx,sy,1.2+Math.sin(elapsed*1.5+sx)*.4,0,Math.PI*2); ctx.fill(); }
     }
-    if (elapsed < 35) {
-        const ca = elapsed < 30 ? 0.88 : 0.88*(1-(elapsed-30)/5);
-        ctx.save(); ctx.globalAlpha=ca; ctx.fillStyle='#FFF';
-        [[110,88,26],[360,68,20],[610,96,30],[790,76,18]].forEach(([x,y,s])=>{
-            drawCloud(x + Math.sin(elapsed*.12+x)*.6, y, s);
-        });
-        ctx.restore();
-    }
     ctx.font='30px serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
     if (elapsed < 30) ctx.fillText('☀️',760,52);
     else if (elapsed < 50) ctx.fillText('🌅',760,52+(elapsed-30)/20*55);
