@@ -1182,6 +1182,12 @@ function drawPlay() {
     else if (elapsed < 50) ctx.fillText('🌅',760,52+(elapsed-30)/20*55);
     else ctx.fillText('🌙',760,52);
 
+    // 歯の周囲を口内らしい暗い色で覆う（空グラデが透けないように）
+    const mouthOverlay = ctx.createLinearGradient(0, 200, 0, GY);
+    mouthOverlay.addColorStop(0, 'rgba(15,4,4,0)');
+    mouthOverlay.addColorStop(1, 'rgba(15,4,4,0.93)');
+    ctx.fillStyle = mouthOverlay; ctx.fillRect(0, 200, GW, GY - 200);
+
     ctx.fillStyle=bg.gum; ctx.fillRect(0,GY,GW,GH-GY);
     ctx.fillStyle=bg.gl; ctx.fillRect(0,GY,GW,3);
 
