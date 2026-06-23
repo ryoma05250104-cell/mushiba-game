@@ -179,7 +179,7 @@ function getCanvasXY(e) {
     };
 }
 function onCanvasTap(x, y) {
-    if (gameState === 'title') { howtoPage = 0; gameState = 'howto'; return; }
+    if (gameState === 'title') { howtoPage = 0; gameState = 'howto'; setButtons(false); return; }
     if (gameState === 'howto') {
         howtoPage++;
         if (howtoPage >= 2) { startGame(); }
