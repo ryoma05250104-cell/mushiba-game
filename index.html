@@ -187,6 +187,7 @@ function onCanvasTap(x, y) {
     }
     if (gameState === 'clear') { gameState = 'title'; setButtons(false); return; }
     if (gameState === 'mini')  { handleMiniTap(x, y); }
+    if (gameState === 'amida') { handleAmidaTap(x, y); }
 }
 canvas.addEventListener('touchstart', e => {
     e.preventDefault();
@@ -208,6 +209,9 @@ function handleMiniTap(x, y) {
         const cy = cardY(i);
         if (x >= CX && x <= CX + CW && y >= cy && y <= cy + CH) {
             const t = MINI_TASKS[i];
+            if (i === 2 && !t.done) {
+                initAmida(); gameState = 'amida'; return;
+            }
             if (!t.done) {
                 t.progress = Math.min(100, t.progress + 3);
                 if (t.progress >= 100) t.done = true;
@@ -376,6 +380,188 @@ function updateCandies(dt) {
     }
 }
 
+// ===== あみだくじミニゲーム =====
+const AMIDA_COL_XS = [200, 427, 654];
+const AMIDA_TOP_Y = 150, AMIDA_BOT_Y = 370;
+let amidaState = 'select';
+let amidaSelected = -1;
+let amidaBars = [];
+let amidaResultOf = [0,1,2];
+let amidaPhoneBottom = 0;
+let amidaRevealT = 0;
+const AMIDA_REVEAL_DUR = 1.8;
+let amidaCutinTimer = 0;
+
+function initAmida() {
+    amidaBars = [];
+    const yLevels = [185, 220, 255, 295, 330];
+    for (const y of yLevels) {
+        if (Math.random() < 0.65) amidaBars.push({ y, left: Math.floor(Math.random() * 2) });
+    }
+    while (amidaBars.length < 2) {
+        const y = yLevels[Math.floor(Math.random() * yLevels.length)];
+        if (!amidaBars.some(b => b.y === y)) amidaBars.push({ y, left: Math.floor(Math.random() * 2) });
+    }
+    amidaResultOf = [0,1,2].map(s => {
+        let c = s;
+        for (const b of [...amidaBars].sort((a,b)=>a.y-b.y)) {
+            if (c === b.left) c = b.left+1; else if (c === b.left+1) c = b.left;
+        }
+        return c;
+    });
+    amidaPhoneBottom = Math.floor(Math.random() * 3);
+    amidaState = 'select'; amidaSelected = -1; amidaRevealT = 0; amidaCutinTimer = 0;
+}
+
+function getAmidaPath(startCol) {
+    const path = []; let col = startCol, y = AMIDA_TOP_Y;
+    for (const bar of [...amidaBars].sort((a,b)=>a.y-b.y)) {
+        if (bar.y > y) { path.push({type:'v',col,y1:y,y2:bar.y}); y = bar.y; }
+        if (col === bar.left || col === bar.left+1) {
+            const nc = col === bar.left ? bar.left+1 : bar.left;
+            path.push({type:'h',y:bar.y,col1:col,col2:nc}); col = nc;
+        }
+    }
+    path.push({type:'v',col,y1:y,y2:AMIDA_BOT_Y});
+    return path;
+}
+
+function getAmidaDotPos(path, progress) {
+    let totalLen = 0;
+    for (const s of path) totalLen += s.type==='v' ? s.y2-s.y1 : Math.abs(AMIDA_COL_XS[s.col2]-AMIDA_COL_XS[s.col1]);
+    let rem = Math.min(progress, 1) * totalLen;
+    for (const s of path) {
+        const len = s.type==='v' ? s.y2-s.y1 : Math.abs(AMIDA_COL_XS[s.col2]-AMIDA_COL_XS[s.col1]);
+        if (rem <= len) {
+            const t = len > 0 ? rem/len : 0;
+            if (s.type==='v') return {x:AMIDA_COL_XS[s.col], y:s.y1+t*(s.y2-s.y1)};
+            return {x:AMIDA_COL_XS[s.col1]+t*(AMIDA_COL_XS[s.col2]-AMIDA_COL_XS[s.col1]), y:s.y};
+        }
+        rem -= len;
+    }
+    const last = path[path.length-1];
+    return {x:AMIDA_COL_XS[last.col], y:last.y2};
+}
+
+function handleAmidaTap(x, y) {
+    if (amidaState === 'select') {
+        for (let c=0; c<3; c++) {
+            if (Math.abs(x - AMIDA_COL_XS[c]) < 56 && y < AMIDA_TOP_Y + 20) {
+                amidaSelected = c; amidaState = 'reveal'; amidaRevealT = 0; return;
+            }
+        }
+    } else if (amidaState === 'done' && amidaCutinTimer <= 0) {
+        gameState = 'mini';
+    }
+}
+
+function updateAmida(dt) {
+    if (amidaState === 'reveal') {
+        amidaRevealT += dt;
+        if (amidaRevealT >= AMIDA_REVEAL_DUR) {
+            amidaState = 'done';
+            if (amidaResultOf[amidaSelected] === amidaPhoneBottom) {
+                MINI_TASKS[2].done = true; MINI_TASKS[2].progress = 100;
+                amidaCutinTimer = 3.5;
+            }
+        }
+    }
+    if (amidaCutinTimer > 0) {
+        amidaCutinTimer -= dt;
+        if (amidaCutinTimer <= 0) gameState = 'mini';
+    }
+}
+
+function drawAmida() {
+    ctx.fillStyle='#08101e'; ctx.fillRect(0,0,GW,GH);
+    ctx.strokeStyle='rgba(50,100,180,0.13)'; ctx.lineWidth=1;
+    for (let gx=0;gx<GW;gx+=40){ctx.beginPath();ctx.moveTo(gx,0);ctx.lineTo(gx,GH);ctx.stroke();}
+    for (let gy=0;gy<GH;gy+=40){ctx.beginPath();ctx.moveTo(0,gy);ctx.lineTo(GW,gy);ctx.stroke();}
+
+    ctx.fillStyle='#FFE040'; ctx.font='bold 22px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='top';
+    ctx.fillText('📞 歯医者キャンセル大作戦！', GW/2, 14);
+    ctx.fillStyle='#AABBCC'; ctx.font='14px sans-serif';
+    ctx.fillText('📞 が当たり！　コースを1つ選んでタップ！', GW/2, 44);
+
+    const COL_COLS = ['#FF8888','#88DDFF','#88FF88'];
+    for (let c=0; c<3; c++) {
+        ctx.strokeStyle=COL_COLS[c]; ctx.lineWidth=6;
+        ctx.beginPath(); ctx.moveTo(AMIDA_COL_XS[c],AMIDA_TOP_Y); ctx.lineTo(AMIDA_COL_XS[c],AMIDA_BOT_Y); ctx.stroke();
+    }
+    for (const bar of amidaBars) {
+        ctx.strokeStyle='rgba(255,255,180,0.9)'; ctx.lineWidth=5;
+        ctx.beginPath(); ctx.moveTo(AMIDA_COL_XS[bar.left],bar.y); ctx.lineTo(AMIDA_COL_XS[bar.left+1],bar.y); ctx.stroke();
+    }
+
+    for (let c=0; c<3; c++) {
+        const cx = AMIDA_COL_XS[c], isSel = amidaSelected===c;
+        ctx.fillStyle = isSel ? 'rgba(255,220,0,0.35)' : 'rgba(255,255,255,0.08)';
+        ctx.strokeStyle = isSel ? '#FFE040' : COL_COLS[c]; ctx.lineWidth = isSel ? 3 : 2;
+        ctx.beginPath(); rrect(cx-52,AMIDA_TOP_Y-60,104,54,10); ctx.fill(); ctx.stroke();
+        const pulse = amidaState==='select' ? 0.7+0.3*Math.sin(Date.now()/280+c*1.5) : 1;
+        ctx.save(); ctx.globalAlpha=pulse;
+        ctx.font='28px serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+        ctx.fillText('📞', cx, AMIDA_TOP_Y-33);
+        ctx.restore();
+    }
+
+    const showBot = amidaState==='done' || (amidaState==='reveal' && amidaRevealT>AMIDA_REVEAL_DUR*0.85);
+    for (let c=0; c<3; c++) {
+        const cx = AMIDA_COL_XS[c];
+        ctx.fillStyle='rgba(255,255,255,0.08)'; ctx.strokeStyle=COL_COLS[c]; ctx.lineWidth=2;
+        ctx.beginPath(); rrect(cx-52,AMIDA_BOT_Y+8,104,50,10); ctx.fill(); ctx.stroke();
+        ctx.font='28px serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+        ctx.fillText(showBot ? (c===amidaPhoneBottom?'📞':'✕') : '❓', cx, AMIDA_BOT_Y+33);
+    }
+
+    if (amidaSelected>=0 && amidaState!=='select') {
+        const path = getAmidaPath(amidaSelected);
+        const {x:dx, y:dy} = getAmidaDotPos(path, amidaRevealT/AMIDA_REVEAL_DUR);
+        ctx.save();
+        ctx.shadowColor='#FFE040'; ctx.shadowBlur=20;
+        ctx.beginPath(); ctx.arc(dx,dy,14,0,Math.PI*2);
+        ctx.fillStyle='rgba(255,215,0,0.9)'; ctx.fill();
+        ctx.font='17px serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+        ctx.fillText('📞',dx,dy);
+        ctx.restore();
+    }
+
+    if (amidaState==='done') {
+        if (amidaCutinTimer>0) {
+            const PW=520,PH=130,PX=(GW-PW)/2,PY=(GH-PH)/2-19;
+            const ph=Math.sin(amidaCutinTimer*10);
+            ctx.save();
+            ctx.fillStyle='rgba(0,0,0,0.65)'; ctx.fillRect(0,0,GW,GH);
+            ctx.shadowColor='rgba(0,220,120,0.8)'; ctx.shadowBlur=20+5*ph;
+            ctx.fillStyle='#fffef0'; ctx.strokeStyle='#44CC88'; ctx.lineWidth=4;
+            ctx.beginPath(); rrect(PX,PY,PW,PH,18); ctx.fill(); ctx.stroke();
+            ctx.shadowBlur=0;
+            ctx.fillStyle='#220044'; ctx.font='bold 16px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+            ctx.fillText('「1週間後の予約を', PX+PW/2, PY+PH/2-18);
+            ctx.font='bold 20px sans-serif';
+            ctx.fillText('キャンセルでお願いします！」', PX+PW/2, PY+PH/2+12);
+            ctx.font='26px serif';
+            ctx.fillText('📞😊✨', PX+PW/2, PY+PH/2+48);
+            ctx.restore();
+        } else {
+            const ok = amidaResultOf[amidaSelected]===amidaPhoneBottom;
+            ctx.fillStyle=ok?'#44FF88':'#FF4466';
+            ctx.font='bold 26px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+            ctx.fillText(ok?'✅ キャンセル成功！':'📵 つながらなかった…', GW/2, AMIDA_BOT_Y+105);
+            ctx.fillStyle='rgba(255,255,255,0.7)'; ctx.font='15px sans-serif';
+            ctx.fillText('👆 タップして戻る', GW/2, AMIDA_BOT_Y+140);
+        }
+    }
+
+    if (amidaState==='select') {
+        const p=0.6+0.4*Math.sin(Date.now()/400);
+        ctx.save(); ctx.globalAlpha=p;
+        ctx.fillStyle='#FFE040'; ctx.font='bold 15px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='bottom';
+        ctx.fillText('↑ 上のコースをタップして選ぼう！', GW/2, GH-18);
+        ctx.restore();
+    }
+}
+
 function updateMini(dt) {
     miniTimer -= dt;
     if (miniTimer <= 0) {
@@ -495,6 +681,7 @@ function updatePlay(dt) {
 function update(dt) {
     if (gameState === 'play') updatePlay(dt);
     else if (gameState === 'mini') updateMini(dt);
+    else if (gameState === 'amida') updateAmida(dt);
 }
 
 function buildToothPath(t) {
@@ -1152,6 +1339,9 @@ function drawMini() {
         if (task.done) {
             ctx.fillStyle='#44FF44'; ctx.font='bold 18px sans-serif'; ctx.textAlign='right'; ctx.textBaseline='top';
             ctx.fillText('✓ クリア！', cx+cw-14, cy+12);
+        } else if (i === 2) {
+            ctx.fillStyle='rgba(255,220,80,.9)'; ctx.font='bold 14px sans-serif'; ctx.textAlign='right'; ctx.textBaseline='top';
+            ctx.fillText('👆 タップして挑戦！', cx+cw-14, cy+12);
         } else {
             ctx.fillStyle='rgba(255,255,255,.3)'; ctx.font='14px sans-serif'; ctx.textAlign='right'; ctx.textBaseline='top';
             ctx.fillText('👆 連打！', cx+cw-14, cy+12);
@@ -1312,6 +1502,7 @@ function draw() {
     if (gameState === 'title') { drawTitle(); return; }
     if (gameState === 'howto') { drawHowto(); return; }
     if (gameState === 'mini')  { drawMini();  return; }
+    if (gameState === 'amida') { drawAmida(); return; }
     if (gameState === 'clear') { drawClear(); return; }
     drawPlay();
 }
