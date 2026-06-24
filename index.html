@@ -108,7 +108,7 @@ let howtoPage = 0;
 let clearTime = 0;
 let superMode = false, superModeAnnounced = false;
 let candyDouble = false, brushPenaltyHalf = false;
-let miniTriggered = false, miniTimer = 20;
+let miniTriggered = false;
 let miniCutInTimer = 0;
 const pAnim = { phase:0, sqX:1, sqY:1, tilt:0, prevGround:false, facing:1 };
 
@@ -126,7 +126,7 @@ function startGame() {
     score = 0; lastATK = 1; ATK = 1;
     superMode = false; superModeAnnounced = false;
     candyDouble = false; brushPenaltyHalf = false;
-    miniTriggered = false; miniTimer = 20; miniCutInTimer = 0;
+    miniTriggered = false; miniCutInTimer = 0;
     pAnim.phase=0; pAnim.sqX=1; pAnim.sqY=1; pAnim.tilt=0; pAnim.prevGround=false; pAnim.facing=1;
     clearTime = 0;
     mkTeeth();
@@ -440,7 +440,7 @@ function initShooting() {
     for (let i=0; i<SHOOTING_TOTAL; i++) {
         shootingPastes.push({ x:60+Math.random()*(GW-120), y:-60-i*55, vy:80+Math.random()*70, alive:true });
     }
-    shootingTimer = SHOOTING_TIME; shootingShot = 0;
+    shootingTimer = 0; shootingShot = 0;
     shootingState = 'play'; shootingResultTimer = 0;
     gameState = 'shooting';
     shootZoneLeft = false; shootZoneRight = false;
@@ -475,7 +475,6 @@ function updateShooting(dt) {
         if (b.y<-20) shooterBullets.splice(i,1);
     }
     // 歯磨き粉移動
-    shootingTimer -= dt;
     for (const p of shootingPastes) {
         if (!p.alive) continue;
         p.y += p.vy*dt;
@@ -497,7 +496,6 @@ function updateShooting(dt) {
         shootingState='clear'; shootingResultTimer=2.5;
         MINI_TASKS[0].done=true; MINI_TASKS[0].progress=100; return;
     }
-    if (shootingTimer<=0) { shootingState='fail'; shootingResultTimer=2.5; }
 }
 
 function drawShooting() {
@@ -508,9 +506,8 @@ function drawShooting() {
 
     ctx.fillStyle='#FF8888'; ctx.font='bold 20px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='top';
     ctx.fillText('🪥 歯磨き粉シューティング！', GW/2, 12);
-    const rem=Math.max(0,shootingTimer);
-    ctx.fillStyle=rem<5?'#FF4444':'#FFE040'; ctx.font='bold 15px sans-serif';
-    ctx.fillText('残り '+Math.ceil(rem)+'秒　|　残り '+(SHOOTING_TOTAL-shootingShot)+'個', GW/2, 40);
+    ctx.fillStyle='#FFE040'; ctx.font='bold 15px sans-serif';
+    ctx.fillText('残り '+(SHOOTING_TOTAL-shootingShot)+'個', GW/2, 40);
 
     for (const p of shootingPastes) {
         if (!p.alive) continue;
@@ -771,12 +768,10 @@ function drawAmida() {
 }
 
 function updateMini(dt) {
-    miniTimer -= dt;
-    if (miniTimer <= 0) {
-        miniTimer = 0;
+    if (MINI_TASKS.every(t => t.done)) {
         if (MINI_TASKS[0].done) brushPenaltyHalf = true;
         if (MINI_TASKS[1].done) candyDouble = true;
-        superMode = MINI_TASKS.every(t => t.done);
+        superMode = true;
         const elapsed = (Date.now() - t0) / 1000;
         if (nextBrushTime <= elapsed + 5) nextBrushTime = elapsed + 15;
         gameState = 'play';
@@ -792,7 +787,7 @@ function updatePlay(dt) {
         if (miniCutInTimer > 0) {
             miniCutInTimer -= dt;
             if (miniCutInTimer <= 0) {
-                miniTriggered = true; gameState = 'mini'; miniTimer = 20;
+                miniTriggered = true; gameState = 'mini';
                 MINI_TASKS.forEach(t => { t.progress = 0; t.done = false; });
                 setButtons(false); return;
             }
@@ -1510,10 +1505,9 @@ function drawMini() {
     ctx.fillStyle='#FF6347'; ctx.font='bold 21px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='top';
     ctx.fillText('💥 夕方ミッション！連打してゲージを100%に！ 💥',GW/2,38);
 
-    const remain = Math.max(0, miniTimer);
-    ctx.fillStyle = remain < 5 ? '#FF4444' : '#FFE040';
-    ctx.font='bold 16px sans-serif';
-    ctx.fillText('残り ' + Math.ceil(remain) + '秒',GW/2,68);
+    const doneCount = MINI_TASKS.filter(t => t.done).length;
+    ctx.fillStyle = '#FFE040'; ctx.font='bold 16px sans-serif';
+    ctx.fillText('達成: ' + doneCount + ' / ' + MINI_TASKS.length, GW/2, 68);
 
     for (let i = 0; i < MINI_TASKS.length; i++) {
         const task = MINI_TASKS[i];
