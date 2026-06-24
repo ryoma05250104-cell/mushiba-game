@@ -126,7 +126,7 @@ function startGame() {
     score = 0; lastATK = 1; ATK = 1;
     superMode = false; superModeAnnounced = false;
     candyDouble = false; brushPenaltyHalf = false;
-    miniTriggered = false; miniCutInTimer = 0; amidaAttempted = false; shootingAttempted = false;
+    miniTriggered = false; miniCutInTimer = 0; amidaAttempted = false; shootingAttempted = false; candyAttempted = false;
     furnitureHit = [false,false,false,false,false]; fallingCandies = []; candyGameState = 'play';
     pAnim.phase=0; pAnim.sqX=1; pAnim.sqY=1; pAnim.tilt=0; pAnim.prevGround=false; pAnim.facing=1;
     clearTime = 0;
@@ -267,7 +267,7 @@ function handleMiniTap(x, y) {
         if (x >= CX && x <= CX + CW && y >= cy && y <= cy + CH) {
             const t = MINI_TASKS[i];
             if (i === 0 && !t.done && !shootingAttempted) { initShooting(); return; }
-            if (i === 1 && !t.done) { initCandyGame(); return; }
+            if (i === 1 && !t.done && !candyAttempted) { initCandyGame(); return; }
             if (i === 2 && !t.done && !amidaAttempted) { initAmida(); gameState = 'amida'; return; }
         }
     }
@@ -440,6 +440,7 @@ let shooterBullets = [], shootingPastes = [];
 let shootingTimer = 0, shootingShot = 0, shootingElapsed = 0;
 let shootingState = 'play'; // 'play'|'clear'|'fail'
 let shootingAttempted = false;
+let candyAttempted = false;
 let shootingResultTimer = 0;
 let shootingBangs = []; // 爆発エフェクト {x, y, t}
 
@@ -858,7 +859,7 @@ function updateCandyGame(dt) {
         return;
     }
     candyGameTimer -= dt;
-    if (candyGameTimer <= 0) { candyGameTimer = 0; candyGameState = 'fail'; candyResultTimer = 2.5; return; }
+    if (candyGameTimer <= 0) { candyGameTimer = 0; candyGameState = 'fail'; candyAttempted = true; candyResultTimer = 2.5; return; }
     if (candyZoneLeft)  candyX = Math.max(30,     candyX - 380*dt);
     if (candyZoneRight) candyX = Math.min(GW-30,  candyX + 380*dt);
     if (candyDropCooldown > 0) candyDropCooldown -= dt;
@@ -1094,7 +1095,7 @@ function drawCandyGame() {
 
 function updateMini(dt) {
     // あみだ失敗でも他タスクが終われば脱出できる
-    const allResolved = MINI_TASKS.every((t, i) => t.done || (i === 0 && shootingAttempted) || (i === 2 && amidaAttempted));
+    const allResolved = MINI_TASKS.every((t, i) => t.done || (i === 0 && shootingAttempted) || (i === 1 && candyAttempted) || (i === 2 && amidaAttempted));
     if (allResolved) {
         if (MINI_TASKS[0].done) brushPenaltyHalf = true;
         if (MINI_TASKS[1].done) candyDouble = true;
@@ -1867,6 +1868,9 @@ function drawMini() {
             ctx.fillStyle='#44FF44'; ctx.font='bold 18px sans-serif'; ctx.textAlign='right'; ctx.textBaseline='top';
             ctx.fillText('✓ クリア！', cx+cw-14, cy+12);
         } else if (i === 0 && shootingAttempted) {
+            ctx.fillStyle='rgba(255,80,80,.9)'; ctx.font='bold 14px sans-serif'; ctx.textAlign='right'; ctx.textBaseline='top';
+            ctx.fillText('⏰ 失敗…再挑戦不可', cx+cw-14, cy+12);
+        } else if (i === 1 && candyAttempted) {
             ctx.fillStyle='rgba(255,80,80,.9)'; ctx.font='bold 14px sans-serif'; ctx.textAlign='right'; ctx.textBaseline='top';
             ctx.fillText('⏰ 失敗…再挑戦不可', cx+cw-14, cy+12);
         } else if (i === 2 && amidaAttempted) {
