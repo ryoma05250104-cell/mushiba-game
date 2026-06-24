@@ -385,37 +385,38 @@ function updateCandies(dt) {
 }
 
 // ===== シューティングミニゲーム =====
-const SHOOTING_TOTAL = 10, SHOOTING_TIME = 25;
-let shooterX = GW/2, shooterBullets = [], shootingPastes = [];
+const SHOOTING_TOTAL = 10, SHOOTING_TIME = 30;
+let cursorX = GW/2, shootCooldown = 0;
+let shooterBullets = [], shootingPastes = [];
 let shootingTimer = 0, shootingShot = 0;
 let shootingState = 'play'; // 'play'|'clear'|'fail'
 let shootingResultTimer = 0;
 let shootingBangs = []; // 爆発エフェクト {x, y, t}
 
+function exitShooting() {
+    gameState = 'mini';
+    setButtons(false);
+    document.getElementById('bD').textContent = '掘る';
+    document.getElementById('bJ').style.display = '';
+}
+
 function initShooting() {
-    shooterX = GW/2; shooterBullets = []; shootingPastes = []; shootingBangs = [];
+    cursorX = GW/2; shootCooldown = 0;
+    shooterBullets = []; shootingPastes = []; shootingBangs = [];
     for (let i=0; i<SHOOTING_TOTAL; i++) {
-        shootingPastes.push({ x:60+Math.random()*(GW-120), y:-60-i*60, vy:90+Math.random()*80, alive:true });
+        shootingPastes.push({ x:60+Math.random()*(GW-120), y:-60-i*55, vy:80+Math.random()*70, alive:true });
     }
     shootingTimer = SHOOTING_TIME; shootingShot = 0;
     shootingState = 'play'; shootingResultTimer = 0;
     gameState = 'shooting';
+    // ボタンを出す：◀▶→カーソル移動、掘る→撃つ、跳ぶは非表示
+    setButtons(true);
+    document.getElementById('bD').textContent = '撃つ';
+    document.getElementById('bJ').style.display = 'none';
 }
 
 function handleShootingTap(x, y) {
-    if (shootingState !== 'play') { if (shootingResultTimer <= 0) gameState = 'mini'; return; }
-    // タップした位置に当たり判定
-    let hit = false;
-    for (const p of shootingPastes) {
-        if (!p.alive) continue;
-        if (Math.abs(x-p.x) < 40 && Math.abs(y-p.y) < 40) {
-            p.alive = false; shootingShot++;
-            shootingBangs.push({ x:p.x, y:p.y, t:0.5 });
-            hit = true; break;
-        }
-    }
-    // 外れた場合も弾エフェクト表示
-    if (!hit) shootingBangs.push({ x, y, t:0.25 });
+    if (shootingState !== 'play') { if (shootingResultTimer <= 0) exitShooting(); return; }
 }
 
 function updateShooting(dt) {
@@ -423,12 +424,43 @@ function updateShooting(dt) {
         shootingBangs[i].t -= dt;
         if (shootingBangs[i].t <= 0) shootingBangs.splice(i, 1);
     }
-    if (shootingState !== 'play') { shootingResultTimer -= dt; return; }
+    if (shootingState !== 'play') {
+        shootingResultTimer -= dt;
+        if (shootingResultTimer <= 0 && shootingState !== 'play') exitShooting();
+        return;
+    }
+    // カーソル移動
+    if (keys.left)  cursorX = Math.max(30, cursorX - 380 * dt);
+    if (keys.right) cursorX = Math.min(GW-30, cursorX + 380 * dt);
+    // 撃つ（掘るボタン = keys.dig）
+    if (shootCooldown > 0) shootCooldown -= dt;
+    if (keys.dig && shootCooldown <= 0) {
+        shooterBullets.push({ x:cursorX, y:GH-72, vx:0, vy:-720 });
+        shootCooldown = 0.18;
+    }
+    // 弾移動
+    for (let i=shooterBullets.length-1; i>=0; i--) {
+        const b=shooterBullets[i]; b.y+=b.vy*dt;
+        if (b.y<-20) shooterBullets.splice(i,1);
+    }
+    // 歯磨き粉移動
     shootingTimer -= dt;
     for (const p of shootingPastes) {
         if (!p.alive) continue;
         p.y += p.vy*dt;
-        if (p.y > GH+50) { p.y=-60-Math.random()*80; p.x=60+Math.random()*(GW-120); }
+        if (p.y > GH+50) { p.y=-60-Math.random()*60; p.x=60+Math.random()*(GW-120); }
+    }
+    // 弾 vs 歯磨き粉
+    for (let bi=shooterBullets.length-1; bi>=0; bi--) {
+        const b=shooterBullets[bi]; let hit=false;
+        for (const p of shootingPastes) {
+            if (!p.alive) continue;
+            if (Math.abs(b.x-p.x)<26&&Math.abs(b.y-p.y)<30) {
+                p.alive=false; shootingShot++;
+                shootingBangs.push({x:p.x,y:p.y,t:0.5}); hit=true; break;
+            }
+        }
+        if (hit) shooterBullets.splice(bi,1);
     }
     if (shootingShot>=SHOOTING_TOTAL) {
         shootingState='clear'; shootingResultTimer=2.5;
@@ -461,22 +493,38 @@ function drawShooting() {
         ctx.restore();
     }
 
+    // 弾
+    for (const b of shooterBullets) {
+        ctx.save();
+        ctx.fillStyle='#FFE040'; ctx.shadowColor='#FF8800'; ctx.shadowBlur=10;
+        ctx.beginPath(); ctx.arc(b.x, b.y, 5, 0, Math.PI*2); ctx.fill();
+        ctx.restore();
+    }
+
     // 爆発エフェクト
     for (const b of shootingBangs) {
         const a = b.t / 0.5;
-        const r = (1-a)*50;
-        ctx.save();
-        ctx.globalAlpha = a;
-        ctx.fillStyle = '#FFE040'; ctx.shadowColor='#FF4400'; ctx.shadowBlur=20;
-        ctx.beginPath(); ctx.arc(b.x, b.y, Math.max(r, 4), 0, Math.PI*2); ctx.fill();
-        ctx.font=`${20+r|0}px serif`; ctx.textAlign='center'; ctx.textBaseline='middle';
+        ctx.save(); ctx.globalAlpha=a;
+        ctx.font=`${(28+(1-a)*30)|0}px serif`; ctx.textAlign='center'; ctx.textBaseline='middle';
         ctx.fillText('💥', b.x, b.y);
         ctx.restore();
     }
 
-    // 操作説明
-    ctx.fillStyle='rgba(255,255,255,0.4)'; ctx.font='13px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='bottom';
-    ctx.fillText('👆 歯磨き粉をタップして撃ち落とせ！', GW/2, GH-8);
+    // カーソル（照準）
+    const cy2 = GH - 72;
+    ctx.save();
+    // 照準線（点線）
+    ctx.strokeStyle='rgba(255,220,0,0.5)'; ctx.lineWidth=1; ctx.setLineDash([5,5]);
+    ctx.beginPath(); ctx.moveTo(cursorX, cy2-18); ctx.lineTo(cursorX, 70); ctx.stroke();
+    ctx.setLineDash([]);
+    // 砲台
+    ctx.translate(cursorX, cy2);
+    ctx.fillStyle='#556677'; ctx.beginPath(); rrect(-22,-16,44,32,6); ctx.fill();
+    ctx.fillStyle='#7799AA'; ctx.beginPath(); rrect(-16,-11,32,22,4); ctx.fill();
+    ctx.fillStyle='#AABB66'; ctx.fillRect(-4,-30,8,18);
+    ctx.font='20px serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText('🦠', 0, 4);
+    ctx.restore();
 
     if (shootingState!=='play') {
         ctx.fillStyle='rgba(0,0,0,0.62)'; ctx.fillRect(0,0,GW,GH);
