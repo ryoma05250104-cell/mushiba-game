@@ -195,9 +195,9 @@ let shootZoneLeft = false, shootZoneRight = false;
 const SHOOT_BTN_Y = 390; // ボタンのY開始位置（canvas座標）
 function getShootZone(x, y) {
     if (y < SHOOT_BTN_Y) return 'none';
-    if (x < 200) return 'left';
-    if (x > GW - 200) return 'right';
-    if (x > GW/2 - 90 && x < GW/2 + 90) return 'fire';
+    if (x < 210) return 'left';
+    if (x < 420) return 'right';
+    if (x > 440) return 'fire';
     return 'none';
 }
 canvas.addEventListener('touchstart', e => {
@@ -550,23 +550,24 @@ function drawShooting() {
     }
 
     // ===== canvas内ボタン =====
-    const BH = GH - SHOOT_BTN_Y; // ボタン高さ
-    // 左ボタン
+    const BH = GH - SHOOT_BTN_Y;
+    const MY = SHOOT_BTN_Y + BH/2;
+    // ◀ ボタン（左端）
     ctx.fillStyle = shootZoneLeft ? 'rgba(100,180,255,0.7)' : 'rgba(60,100,160,0.55)';
-    ctx.beginPath(); rrect(10, SHOOT_BTN_Y+6, 170, BH-12, 14); ctx.fill();
-    ctx.fillStyle='#FFF'; ctx.font='bold 28px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
-    ctx.fillText('◀', 95, SHOOT_BTN_Y + BH/2);
-    // 右ボタン
+    ctx.beginPath(); rrect(8, SHOOT_BTN_Y+6, 195, BH-12, 14); ctx.fill();
+    ctx.fillStyle='#FFF'; ctx.font='bold 32px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText('◀', 105, MY);
+    // ▶ ボタン（◀の右）
     ctx.fillStyle = shootZoneRight ? 'rgba(100,255,180,0.7)' : 'rgba(60,160,100,0.55)';
-    ctx.beginPath(); rrect(GW-180, SHOOT_BTN_Y+6, 170, BH-12, 14); ctx.fill();
-    ctx.fillStyle='#FFF'; ctx.font='bold 28px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
-    ctx.fillText('▶', GW-95, SHOOT_BTN_Y + BH/2);
-    // 撃つボタン（中央）
+    ctx.beginPath(); rrect(213, SHOOT_BTN_Y+6, 195, BH-12, 14); ctx.fill();
+    ctx.fillStyle='#FFF'; ctx.font='bold 32px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText('▶', 310, MY);
+    // 撃つボタン（右半分）
     const fireActive = shootCooldown > 0.12;
     ctx.fillStyle = fireActive ? 'rgba(255,180,0,0.85)' : 'rgba(200,80,0,0.65)';
-    ctx.beginPath(); rrect(GW/2-85, SHOOT_BTN_Y+6, 170, BH-12, 14); ctx.fill();
-    ctx.fillStyle='#FFF'; ctx.font='bold 18px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
-    ctx.fillText('💥 撃つ', GW/2, SHOOT_BTN_Y + BH/2);
+    ctx.beginPath(); rrect(448, SHOOT_BTN_Y+6, GW-458, BH-12, 14); ctx.fill();
+    ctx.fillStyle='#FFF'; ctx.font='bold 20px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText('💥 撃つ', 448 + (GW-458)/2, MY);
 
     // カーソル（画面外から照準線のみ表示）
     ctx.save();
