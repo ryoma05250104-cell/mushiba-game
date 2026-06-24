@@ -217,7 +217,7 @@ canvas.addEventListener('touchstart', e => {
             const z = getCandyZone(cx, cy);
             if (z === 'left')  { candyZoneLeft  = true; continue; }
             if (z === 'right') { candyZoneRight = true; continue; }
-            if (z === 'drop')  { candyZoneDrop  = true; continue; }
+            if (z === 'drop')  { candyZoneDrop  = true; dropOneCandy(); continue; }
             handleCandyTap(cx, cy); continue;
         }
         onCanvasTap(cx, cy);
@@ -254,7 +254,7 @@ canvas.addEventListener('mousedown', e => {
         const z = getCandyZone(x, y);
         if (z === 'left')  { candyZoneLeft  = true; return; }
         if (z === 'right') { candyZoneRight = true; return; }
-        if (z === 'drop')  { candyZoneDrop  = true; return; }
+        if (z === 'drop')  { candyZoneDrop  = true; dropOneCandy(); return; }
         handleCandyTap(x, y); return;
     }
     onCanvasTap(x, y);
@@ -833,6 +833,11 @@ function initCandyGame() {
 function exitCandyGame() {
     gameState = 'mini';
     candyZoneLeft = false; candyZoneRight = false; candyZoneDrop = false;
+}
+function dropOneCandy() {
+    if (candyGameState !== 'play' || candyDropCooldown > 0) return;
+    fallingCandies.push({ x: candyX, y: CANDY_DROP_Y+20, vy: 120 });
+    candyDropCooldown = 0.28;
 }
 function handleCandyTap(x, y) {
     if (candyGameState !== 'play' && candyResultTimer <= 0) exitCandyGame();
