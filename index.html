@@ -53,7 +53,7 @@ const CANDY_TYPES = [
 const STARS = Array.from({ length: 32 }, () => [Math.random() * GW, 40 + Math.random() * 210]);
 
 const MINI_TASKS = [
-    { label: '🪥 はみがき粉を捨てる！', sub: '→ 歯ブラシダメージ半減！',  progress: 0, done: false },
+    { label: '🪥 歯みがき粉を捨てる！', sub: '→ 歯ブラシダメージ半減！',  progress: 0, done: false },
     { label: '🍫 お菓子をばら撒く！',  sub: '→ お菓子の出現が2倍に！',   progress: 0, done: false },
     { label: '📞 歯医者をキャンセル！', sub: '→ ゲームオーバーを防止！',  progress: 0, done: false },
 ];
@@ -482,7 +482,7 @@ function updateShooting(dt) {
         const b=shooterBullets[i]; b.y+=b.vy*dt;
         if (b.y<-20) shooterBullets.splice(i,1);
     }
-    // はみがき粉 浮遊移動
+    // 歯みがき粉 浮遊移動
     shootingElapsed += dt;
     for (const p of shootingPastes) {
         if (!p.alive) continue;
@@ -491,7 +491,7 @@ function updateShooting(dt) {
         if (p.x > GW-50) { p.x = GW-50; p.vx = -Math.abs(p.vx); }
         p.y = p.baseY + Math.sin(shootingElapsed * 1.4 + p.phase) * 25;
     }
-    // 弾 vs はみがき粉
+    // 弾 vs 歯みがき粉
     for (let bi=shooterBullets.length-1; bi>=0; bi--) {
         const b=shooterBullets[bi]; let hit=false;
         for (const p of shootingPastes) {
@@ -516,7 +516,7 @@ function drawShooting() {
     for (let gy=0;gy<GH;gy+=40){ctx.beginPath();ctx.moveTo(0,gy);ctx.lineTo(GW,gy);ctx.stroke();}
 
     ctx.fillStyle='#FF8888'; ctx.font='bold 20px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='top';
-    ctx.fillText('🪥 はみがき粉シューティング！', GW/2, 12);
+    ctx.fillText('🪥 歯みがき粉シューティング！', GW/2, 12);
     ctx.fillStyle='#FFE040'; ctx.font='bold 15px sans-serif';
     ctx.fillText('残り '+(SHOOTING_TOTAL-shootingShot)+'個', GW/2, 40);
 
@@ -528,7 +528,7 @@ function drawShooting() {
         ctx.fillStyle='#CCEEFF'; ctx.beginPath(); rrect(-20,-42,40,14,5); ctx.fill();
         ctx.fillStyle='#FFFFFF'; ctx.fillRect(-10,20,20,10);
         ctx.fillStyle='#00264d'; ctx.font='bold 12px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
-        ctx.fillText('はみがき', 0, -8);
+        ctx.fillText('歯みがき粉', 0, -8);
         ctx.restore();
     }
 
@@ -583,7 +583,7 @@ function drawShooting() {
         ctx.fillStyle='rgba(0,0,0,0.62)'; ctx.fillRect(0,0,GW,GH);
         ctx.fillStyle='#44FF88';
         ctx.font='bold 30px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
-        ctx.fillText('🎉 大成功！はみがき粉全部捨てたぞ！', GW/2, GH/2-20);
+        ctx.fillText('🎉 大成功！歯みがき粉全部捨てたぞ！', GW/2, GH/2-20);
         if (shootingResultTimer<=0) {
             ctx.fillStyle='rgba(255,255,255,0.7)'; ctx.font='16px sans-serif';
             ctx.fillText('👆 タップして戻る', GW/2, GH/2+28);
