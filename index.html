@@ -126,7 +126,7 @@ function startGame() {
     score = 0; lastATK = 1; ATK = 1;
     superMode = false; superModeAnnounced = false;
     candyDouble = false; brushPenaltyHalf = false;
-    miniTriggered = false; miniCutInTimer = 0; amidaAttempted = false;
+    miniTriggered = false; miniCutInTimer = 0; amidaAttempted = false; shootingAttempted = false;
     furnitureHit = [false,false,false,false,false]; fallingCandies = []; candyGameState = 'play';
     pAnim.phase=0; pAnim.sqX=1; pAnim.sqY=1; pAnim.tilt=0; pAnim.prevGround=false; pAnim.facing=1;
     clearTime = 0;
@@ -266,7 +266,7 @@ function handleMiniTap(x, y) {
         const cy = cardY(i);
         if (x >= CX && x <= CX + CW && y >= cy && y <= cy + CH) {
             const t = MINI_TASKS[i];
-            if (i === 0 && !t.done) { initShooting(); return; }
+            if (i === 0 && !t.done && !shootingAttempted) { initShooting(); return; }
             if (i === 1 && !t.done) { initCandyGame(); return; }
             if (i === 2 && !t.done && !amidaAttempted) { initAmida(); gameState = 'amida'; return; }
         }
@@ -439,6 +439,7 @@ let cursorX = GW/2, shootCooldown = 0;
 let shooterBullets = [], shootingPastes = [];
 let shootingTimer = 0, shootingShot = 0, shootingElapsed = 0;
 let shootingState = 'play'; // 'play'|'clear'|'fail'
+let shootingAttempted = false;
 let shootingResultTimer = 0;
 let shootingBangs = []; // 爆発エフェクト {x, y, t}
 
@@ -501,7 +502,7 @@ function updateShooting(dt) {
     }
     // タイマー
     shootingTimer -= dt;
-    if (shootingTimer <= 0) { shootingState='fail'; shootingResultTimer=2.5; return; }
+    if (shootingTimer <= 0) { shootingState='fail'; shootingResultTimer=2.5; shootingAttempted=true; return; }
     // 歯みがき粉 浮遊移動
     shootingElapsed += dt;
     for (const p of shootingPastes) {
@@ -821,6 +822,7 @@ let fallingCandies = [];
 let furnitureHit = [false,false,false,false,false];
 let candyGameState = 'play';
 let candyResultTimer = 0;
+let candyGameTimer = 0;
 
 function getCandyZone(x, y) {
     if (y < CANDY_BTN_Y2) return 'none';
@@ -834,7 +836,7 @@ function initCandyGame() {
     candyZoneLeft = false; candyZoneRight = false; candyZoneDrop = false;
     fallingCandies = [];
     furnitureHit = [false,false,false,false,false];
-    candyGameState = 'play'; candyResultTimer = 0;
+    candyGameState = 'play'; candyResultTimer = 0; candyGameTimer = 15;
     gameState = 'candy';
 }
 function exitCandyGame() {
@@ -855,6 +857,8 @@ function updateCandyGame(dt) {
         if (candyResultTimer <= 0) exitCandyGame();
         return;
     }
+    candyGameTimer -= dt;
+    if (candyGameTimer <= 0) { candyGameTimer = 0; candyGameState = 'fail'; candyResultTimer = 2.5; return; }
     if (candyZoneLeft)  candyX = Math.max(30,     candyX - 380*dt);
     if (candyZoneRight) candyX = Math.min(GW-30,  candyX + 380*dt);
     if (candyDropCooldown > 0) candyDropCooldown -= dt;
@@ -903,6 +907,9 @@ function drawCandyGame() {
     const hc=furnitureHit.filter(h=>h).length;
     ctx.fillStyle='#CC4400'; ctx.font='bold 14px sans-serif';
     ctx.fillText('📍 '+hc+' / 5 ヶ所',GW/2,32);
+    const rem2=Math.max(0,candyGameTimer);
+    ctx.fillStyle=rem2<5?'#FF4444':'#FFE040'; ctx.font='bold 15px sans-serif';
+    ctx.fillText('残り '+Math.ceil(rem2)+'秒',GW/2,54);
 
     // === 本棚 ===
     {
@@ -1066,15 +1073,20 @@ function drawCandyGame() {
     ctx.fillStyle='#FFF'; ctx.font='bold 18px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
     ctx.fillText('🍫 落とす',8+BW2*2+16+BW2/2,MY2);
 
-    // クリア演出
-    if(candyGameState==='clear'){
+    // クリア／失敗演出
+    if(candyGameState==='clear'||candyGameState==='fail'){
         ctx.fillStyle='rgba(0,0,0,0.6)'; ctx.fillRect(0,0,GW,GH);
-        ctx.fillStyle='#FFDD00'; ctx.font='bold 28px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
-        ctx.fillText('🎉 大成功！',GW/2,GH/2-40);
-        ctx.font='bold 22px sans-serif';
-        ctx.fillText('部屋中にばら撒いた！',GW/2,GH/2-5);
+        if(candyGameState==='clear'){
+            ctx.fillStyle='#FFDD00'; ctx.font='bold 28px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+            ctx.fillText('🎉 大成功！',GW/2,GH/2-40);
+            ctx.font='bold 22px sans-serif';
+            ctx.fillText('部屋中にばら撒いた！',GW/2,GH/2-5);
+        } else {
+            ctx.fillStyle='#FF4466'; ctx.font='bold 28px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+            ctx.fillText('⏰ タイムアップ！',GW/2,GH/2-20);
+        }
         if(candyResultTimer<=0){
-            ctx.fillStyle='rgba(255,255,255,0.7)'; ctx.font='16px sans-serif';
+            ctx.fillStyle='rgba(255,255,255,0.7)'; ctx.font='16px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
             ctx.fillText('👆 タップして戻る',GW/2,GH/2+28);
         }
     }
@@ -1082,7 +1094,7 @@ function drawCandyGame() {
 
 function updateMini(dt) {
     // あみだ失敗でも他タスクが終われば脱出できる
-    const allResolved = MINI_TASKS.every((t, i) => t.done || (i === 2 && amidaAttempted));
+    const allResolved = MINI_TASKS.every((t, i) => t.done || (i === 0 && shootingAttempted) || (i === 2 && amidaAttempted));
     if (allResolved) {
         if (MINI_TASKS[0].done) brushPenaltyHalf = true;
         if (MINI_TASKS[1].done) candyDouble = true;
@@ -1854,6 +1866,9 @@ function drawMini() {
         if (task.done) {
             ctx.fillStyle='#44FF44'; ctx.font='bold 18px sans-serif'; ctx.textAlign='right'; ctx.textBaseline='top';
             ctx.fillText('✓ クリア！', cx+cw-14, cy+12);
+        } else if (i === 0 && shootingAttempted) {
+            ctx.fillStyle='rgba(255,80,80,.9)'; ctx.font='bold 14px sans-serif'; ctx.textAlign='right'; ctx.textBaseline='top';
+            ctx.fillText('⏰ 失敗…再挑戦不可', cx+cw-14, cy+12);
         } else if (i === 2 && amidaAttempted) {
             ctx.fillStyle='rgba(255,80,80,.9)'; ctx.font='bold 14px sans-serif'; ctx.textAlign='right'; ctx.textBaseline='top';
             ctx.fillText('📵 失敗…再挑戦不可', cx+cw-14, cy+12);
