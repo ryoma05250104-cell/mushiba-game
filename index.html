@@ -190,20 +190,56 @@ function onCanvasTap(x, y) {
     if (gameState === 'shooting') { handleShootingTap(x, y); }
     if (gameState === 'amida') { handleAmidaTap(x, y); }
 }
+// シューティング用タッチゾーン追跡
+let shootZoneLeft = false, shootZoneRight = false;
+const SHOOT_BTN_Y = 390; // ボタンのY開始位置（canvas座標）
+function getShootZone(x, y) {
+    if (y < SHOOT_BTN_Y) return 'none';
+    if (x < 200) return 'left';
+    if (x > GW - 200) return 'right';
+    if (x > GW/2 - 90 && x < GW/2 + 90) return 'fire';
+    return 'none';
+}
 canvas.addEventListener('touchstart', e => {
     e.preventDefault();
     for (const t of e.changedTouches) {
         const rect = canvas.getBoundingClientRect();
-        onCanvasTap(
-            (t.clientX - rect.left) * GW / rect.width,
-            (t.clientY - rect.top)  * GH / rect.height,
-        );
+        const cx = (t.clientX - rect.left) * GW / rect.width;
+        const cy = (t.clientY - rect.top)  * GH / rect.height;
+        if (gameState === 'shooting') {
+            const z = getShootZone(cx, cy);
+            if (z === 'left')  { shootZoneLeft  = true; continue; }
+            if (z === 'right') { shootZoneRight = true; continue; }
+            if (z === 'fire')  { handleShootingTap(cx, cy); continue; }
+        }
+        onCanvasTap(cx, cy);
     }
 }, { passive: false });
+canvas.addEventListener('touchend', e => {
+    e.preventDefault();
+    for (const t of e.changedTouches) {
+        const rect = canvas.getBoundingClientRect();
+        const cx = (t.clientX - rect.left) * GW / rect.width;
+        const cy = (t.clientY - rect.top)  * GH / rect.height;
+        const z = getShootZone(cx, cy);
+        if (z === 'left')  shootZoneLeft  = false;
+        if (z === 'right') shootZoneRight = false;
+        // ゾーン外でtouchendしても両方リセット（指を滑らせた場合）
+        if (z === 'none') { shootZoneLeft = false; shootZoneRight = false; }
+    }
+}, { passive: false });
+canvas.addEventListener('touchcancel', () => { shootZoneLeft = false; shootZoneRight = false; });
 canvas.addEventListener('mousedown', e => {
     const { x, y } = getCanvasXY(e);
+    if (gameState === 'shooting') {
+        const z = getShootZone(x, y);
+        if (z === 'left')  { shootZoneLeft  = true; return; }
+        if (z === 'right') { shootZoneRight = true; return; }
+        if (z === 'fire')  { handleShootingTap(x, y); return; }
+    }
     onCanvasTap(x, y);
 });
+canvas.addEventListener('mouseup', () => { shootZoneLeft = false; shootZoneRight = false; });
 
 function handleMiniTap(x, y) {
     for (let i = 0; i < MINI_TASKS.length; i++) {
@@ -395,9 +431,7 @@ let shootingBangs = []; // 爆発エフェクト {x, y, t}
 
 function exitShooting() {
     gameState = 'mini';
-    setButtons(false);
-    document.getElementById('bD').textContent = '掘る';
-    document.getElementById('bJ').style.display = '';
+    shootZoneLeft = false; shootZoneRight = false;
 }
 
 function initShooting() {
@@ -409,14 +443,15 @@ function initShooting() {
     shootingTimer = SHOOTING_TIME; shootingShot = 0;
     shootingState = 'play'; shootingResultTimer = 0;
     gameState = 'shooting';
-    // ボタンを出す：◀▶→カーソル移動、掘る→撃つ、跳ぶは非表示
-    setButtons(true);
-    document.getElementById('bD').textContent = '撃つ';
-    document.getElementById('bJ').style.display = 'none';
+    shootZoneLeft = false; shootZoneRight = false;
 }
 
 function handleShootingTap(x, y) {
     if (shootingState !== 'play') { if (shootingResultTimer <= 0) exitShooting(); return; }
+    if (shootCooldown <= 0) {
+        shooterBullets.push({ x:cursorX, y:SHOOT_BTN_Y - 20, vx:0, vy:-720 });
+        shootCooldown = 0.18;
+    }
 }
 
 function updateShooting(dt) {
@@ -430,14 +465,10 @@ function updateShooting(dt) {
         return;
     }
     // カーソル移動
-    if (keys.left)  cursorX = Math.max(30, cursorX - 380 * dt);
-    if (keys.right) cursorX = Math.min(GW-30, cursorX + 380 * dt);
-    // 撃つ（掘るボタン = keys.dig）
+    if (shootZoneLeft)  cursorX = Math.max(30, cursorX - 420 * dt);
+    if (shootZoneRight) cursorX = Math.min(GW-30, cursorX + 420 * dt);
+    // 撃つ（handleShootingTapから呼ばれる）
     if (shootCooldown > 0) shootCooldown -= dt;
-    if (keys.dig && shootCooldown <= 0) {
-        shooterBullets.push({ x:cursorX, y:GH-72, vx:0, vy:-720 });
-        shootCooldown = 0.18;
-    }
     // 弾移動
     for (let i=shooterBullets.length-1; i>=0; i--) {
         const b=shooterBullets[i]; b.y+=b.vy*dt;
@@ -510,8 +541,27 @@ function drawShooting() {
         ctx.restore();
     }
 
+    // ===== canvas内ボタン =====
+    const BH = GH - SHOOT_BTN_Y; // ボタン高さ
+    // 左ボタン
+    ctx.fillStyle = shootZoneLeft ? 'rgba(100,180,255,0.7)' : 'rgba(60,100,160,0.55)';
+    ctx.beginPath(); rrect(10, SHOOT_BTN_Y+6, 170, BH-12, 14); ctx.fill();
+    ctx.fillStyle='#FFF'; ctx.font='bold 28px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText('◀', 95, SHOOT_BTN_Y + BH/2);
+    // 右ボタン
+    ctx.fillStyle = shootZoneRight ? 'rgba(100,255,180,0.7)' : 'rgba(60,160,100,0.55)';
+    ctx.beginPath(); rrect(GW-180, SHOOT_BTN_Y+6, 170, BH-12, 14); ctx.fill();
+    ctx.fillStyle='#FFF'; ctx.font='bold 28px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText('▶', GW-95, SHOOT_BTN_Y + BH/2);
+    // 撃つボタン（中央）
+    const fireActive = shootCooldown > 0.12;
+    ctx.fillStyle = fireActive ? 'rgba(255,180,0,0.85)' : 'rgba(200,80,0,0.65)';
+    ctx.beginPath(); rrect(GW/2-85, SHOOT_BTN_Y+6, 170, BH-12, 14); ctx.fill();
+    ctx.fillStyle='#FFF'; ctx.font='bold 18px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText('💥 撃つ', GW/2, SHOOT_BTN_Y + BH/2);
+
     // カーソル（照準）
-    const cy2 = GH - 72;
+    const cy2 = SHOOT_BTN_Y - 18;
     ctx.save();
     // 照準線（点線）
     ctx.strokeStyle='rgba(255,220,0,0.5)'; ctx.lineWidth=1; ctx.setLineDash([5,5]);
