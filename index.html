@@ -127,6 +127,7 @@ function startGame() {
     superMode = false; superModeAnnounced = false;
     candyDouble = false; brushPenaltyHalf = false;
     miniTriggered = false; miniCutInTimer = 0; amidaAttempted = false;
+    furnitureHit = [false,false,false,false,false]; fallingCandies = []; candyGameState = 'play';
     pAnim.phase=0; pAnim.sqX=1; pAnim.sqY=1; pAnim.tilt=0; pAnim.prevGround=false; pAnim.facing=1;
     clearTime = 0;
     mkTeeth();
@@ -212,6 +213,13 @@ canvas.addEventListener('touchstart', e => {
             if (z === 'right') { shootZoneRight = true; continue; }
             if (z === 'fire')  { shootZoneFire = true; handleShootingTap(cx, cy); continue; }
         }
+        if (gameState === 'candy') {
+            const z = getCandyZone(cx, cy);
+            if (z === 'left')  { candyZoneLeft  = true; continue; }
+            if (z === 'right') { candyZoneRight = true; continue; }
+            if (z === 'drop')  { candyZoneDrop  = true; continue; }
+            handleCandyTap(cx, cy); continue;
+        }
         onCanvasTap(cx, cy);
     }
 }, { passive: false });
@@ -226,9 +234,14 @@ canvas.addEventListener('touchend', e => {
         if (z === 'right') shootZoneRight = false;
         if (z === 'fire')  shootZoneFire  = false;
         if (z === 'none') { shootZoneLeft = false; shootZoneRight = false; shootZoneFire = false; }
+        const cz = getCandyZone(cx, cy);
+        if (cz === 'left')  candyZoneLeft  = false;
+        if (cz === 'right') candyZoneRight = false;
+        if (cz === 'drop')  candyZoneDrop  = false;
+        if (cz === 'none')  { candyZoneLeft = false; candyZoneRight = false; candyZoneDrop = false; }
     }
 }, { passive: false });
-canvas.addEventListener('touchcancel', () => { shootZoneLeft = false; shootZoneRight = false; shootZoneFire = false; });
+canvas.addEventListener('touchcancel', () => { shootZoneLeft = false; shootZoneRight = false; shootZoneFire = false; candyZoneLeft = false; candyZoneRight = false; candyZoneDrop = false; });
 canvas.addEventListener('mousedown', e => {
     const { x, y } = getCanvasXY(e);
     if (gameState === 'shooting') {
@@ -237,25 +250,25 @@ canvas.addEventListener('mousedown', e => {
         if (z === 'right') { shootZoneRight = true; return; }
         if (z === 'fire')  { shootZoneFire = true; handleShootingTap(x, y); return; }
     }
+    if (gameState === 'candy') {
+        const z = getCandyZone(x, y);
+        if (z === 'left')  { candyZoneLeft  = true; return; }
+        if (z === 'right') { candyZoneRight = true; return; }
+        if (z === 'drop')  { candyZoneDrop  = true; return; }
+        handleCandyTap(x, y); return;
+    }
     onCanvasTap(x, y);
 });
-canvas.addEventListener('mouseup', () => { shootZoneLeft = false; shootZoneRight = false; shootZoneFire = false; });
+canvas.addEventListener('mouseup', () => { shootZoneLeft = false; shootZoneRight = false; shootZoneFire = false; candyZoneLeft = false; candyZoneRight = false; candyZoneDrop = false; });
 
 function handleMiniTap(x, y) {
     for (let i = 0; i < MINI_TASKS.length; i++) {
         const cy = cardY(i);
         if (x >= CX && x <= CX + CW && y >= cy && y <= cy + CH) {
             const t = MINI_TASKS[i];
-            if (i === 0 && !t.done) {
-                initShooting(); return;
-            }
-            if (i === 2 && !t.done && !amidaAttempted) {
-                initAmida(); gameState = 'amida'; return;
-            }
-            if (!t.done) {
-                t.progress = Math.min(100, t.progress + 3);
-                if (t.progress >= 100) t.done = true;
-            }
+            if (i === 0 && !t.done) { initShooting(); return; }
+            if (i === 1 && !t.done) { initCandyGame(); return; }
+            if (i === 2 && !t.done && !amidaAttempted) { initAmida(); gameState = 'amida'; return; }
         }
     }
 }
@@ -784,6 +797,145 @@ function drawAmida() {
     }
 }
 
+// ===== お菓子ばら撒きゲーム =====
+const CANDY_BTN_Y2 = 390;
+const CANDY_FLOOR_Y = 318;
+const CANDY_DROP_Y  = 58;
+const CANDY_FURNITURE = [
+    { name: 'ベッド',     x1: 45,  x2: 295, y1: 218, y2: CANDY_FLOOR_Y, color: '#8B6B35' },
+    { name: 'ぬいぐるみ', x1: 82,  x2: 158, y1: 178, y2: 220,           color: '#F0A0C0' },
+    { name: '机',         x1: 340, x2: 530, y1: 255, y2: CANDY_FLOOR_Y, color: '#A06030' },
+    { name: '椅子',       x1: 538, x2: 618, y1: 270, y2: CANDY_FLOOR_Y, color: '#6B4020' },
+    { name: '本棚',       x1: 680, x2: 775, y1: 90,  y2: CANDY_FLOOR_Y, color: '#5C3010' },
+];
+let candyX = GW/2, candyDropCooldown = 0;
+let candyZoneLeft = false, candyZoneRight = false, candyZoneDrop = false;
+let fallingCandies = [];
+let furnitureHit = [false,false,false,false,false];
+let candyGameState = 'play';
+let candyResultTimer = 0;
+
+function getCandyZone(x, y) {
+    if (y < CANDY_BTN_Y2) return 'none';
+    const W = GW / 3;
+    if (x < W)     return 'left';
+    if (x < W * 2) return 'right';
+    return 'drop';
+}
+function initCandyGame() {
+    candyX = GW/2; candyDropCooldown = 0;
+    candyZoneLeft = false; candyZoneRight = false; candyZoneDrop = false;
+    fallingCandies = [];
+    furnitureHit = [false,false,false,false,false];
+    candyGameState = 'play'; candyResultTimer = 0;
+    gameState = 'candy';
+}
+function exitCandyGame() {
+    gameState = 'mini';
+    candyZoneLeft = false; candyZoneRight = false; candyZoneDrop = false;
+}
+function handleCandyTap(x, y) {
+    if (candyGameState !== 'play' && candyResultTimer <= 0) exitCandyGame();
+}
+function updateCandyGame(dt) {
+    if (candyGameState !== 'play') {
+        candyResultTimer -= dt;
+        if (candyResultTimer <= 0) exitCandyGame();
+        return;
+    }
+    if (candyZoneLeft)  candyX = Math.max(30,     candyX - 380*dt);
+    if (candyZoneRight) candyX = Math.min(GW-30,  candyX + 380*dt);
+    if (candyDropCooldown > 0) candyDropCooldown -= dt;
+    if (candyZoneDrop && candyDropCooldown <= 0) {
+        fallingCandies.push({ x: candyX, y: CANDY_DROP_Y+20, vy: 120 });
+        candyDropCooldown = 0.28;
+    }
+    const sorted = [...CANDY_FURNITURE.keys()].sort((a,b) => CANDY_FURNITURE[a].y1 - CANDY_FURNITURE[b].y1);
+    for (const c of fallingCandies) {
+        if (c.landed) continue;
+        c.vy += 500*dt;
+        c.y  += c.vy*dt;
+        for (const fi of sorted) {
+            const f = CANDY_FURNITURE[fi];
+            if (c.x >= f.x1 && c.x <= f.x2 && c.y >= f.y1) {
+                c.y = f.y1; c.landed = true; furnitureHit[fi] = true; break;
+            }
+        }
+        if (!c.landed && c.y >= CANDY_FLOOR_Y) { c.y = CANDY_FLOOR_Y; c.landed = true; }
+    }
+    if (furnitureHit.every(h=>h)) {
+        MINI_TASKS[1].done = true; MINI_TASKS[1].progress = 100;
+        candyGameState = 'clear'; candyResultTimer = 2.5;
+    }
+}
+function drawCandyGame() {
+    // 壁
+    const wg = ctx.createLinearGradient(0,0,0,CANDY_FLOOR_Y);
+    wg.addColorStop(0,'#F2E2CC'); wg.addColorStop(1,'#E0CAAA');
+    ctx.fillStyle = wg; ctx.fillRect(0,0,GW,CANDY_FLOOR_Y);
+    // 床
+    ctx.fillStyle='#8B7350'; ctx.fillRect(0,CANDY_FLOOR_Y,GW,GH-CANDY_FLOOR_Y);
+    ctx.fillStyle='#7A6240'; ctx.fillRect(0,CANDY_FLOOR_Y,GW,8);
+    // ボタン背景
+    ctx.fillStyle='rgba(15,5,35,0.88)'; ctx.fillRect(0,CANDY_BTN_Y2,GW,GH-CANDY_BTN_Y2);
+    // タイトル
+    ctx.fillStyle='#4A2800'; ctx.font='bold 17px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='top';
+    ctx.fillText('🍫 お菓子をばら撒け！', GW/2, 8);
+    const hc = furnitureHit.filter(h=>h).length;
+    ctx.fillStyle='#CC4400'; ctx.font='bold 14px sans-serif';
+    ctx.fillText('📍 '+hc+' / 5 ヶ所', GW/2, 32);
+    // 家具描画（ぬいぐるみはベッドの上に重ねるので後）
+    const drawOrder = [0,2,3,4,1];
+    for (const fi of drawOrder) {
+        const f = CANDY_FURNITURE[fi];
+        ctx.save();
+        if (furnitureHit[fi]) { ctx.shadowColor='#FFDD00'; ctx.shadowBlur=18; }
+        ctx.fillStyle = f.color;
+        ctx.beginPath(); rrect(f.x1, f.y1, f.x2-f.x1, f.y2-f.y1, 5); ctx.fill();
+        ctx.shadowBlur=0;
+        ctx.fillStyle='rgba(255,245,220,0.88)'; ctx.font='bold 13px sans-serif';
+        ctx.textAlign='center'; ctx.textBaseline='middle';
+        ctx.fillText(f.name, (f.x1+f.x2)/2, f.y1+(f.y2-f.y1)*0.45);
+        ctx.restore();
+    }
+    // 落ちたお菓子
+    ctx.font='16px serif'; ctx.textAlign='center'; ctx.textBaseline='bottom';
+    for (const c of fallingCandies) ctx.fillText('🍫', c.x, c.y);
+    // ドロッパー（キャビィ）＋照準線
+    ctx.save();
+    ctx.strokeStyle='rgba(255,140,0,0.35)'; ctx.lineWidth=1.5; ctx.setLineDash([4,4]);
+    ctx.beginPath(); ctx.moveTo(candyX, CANDY_DROP_Y+18); ctx.lineTo(candyX, CANDY_FLOOR_Y); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.font='28px serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText('🦠', candyX, CANDY_DROP_Y);
+    ctx.restore();
+    // ボタン
+    const BH2 = GH - CANDY_BTN_Y2, MY2 = CANDY_BTN_Y2+BH2/2, BW2 = (GW-24)/3;
+    ctx.fillStyle = candyZoneLeft  ? 'rgba(100,180,255,0.7)':'rgba(60,100,160,0.55)';
+    ctx.beginPath(); rrect(8, CANDY_BTN_Y2+6, BW2, BH2-12, 14); ctx.fill();
+    ctx.fillStyle='#FFF'; ctx.font='bold 26px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText('◀', 8+BW2/2, MY2);
+    ctx.fillStyle = candyZoneRight ? 'rgba(100,255,180,0.7)':'rgba(60,160,100,0.55)';
+    ctx.beginPath(); rrect(8+BW2+8, CANDY_BTN_Y2+6, BW2, BH2-12, 14); ctx.fill();
+    ctx.fillStyle='#FFF'; ctx.font='bold 26px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText('▶', 8+BW2+8+BW2/2, MY2);
+    const dropActive = candyDropCooldown > 0.15;
+    ctx.fillStyle = dropActive ? 'rgba(255,180,0,0.85)':'rgba(200,80,0,0.65)';
+    ctx.beginPath(); rrect(8+BW2*2+16, CANDY_BTN_Y2+6, BW2, BH2-12, 14); ctx.fill();
+    ctx.fillStyle='#FFF'; ctx.font='bold 18px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText('🍫 落とす', 8+BW2*2+16+BW2/2, MY2);
+    // クリア演出
+    if (candyGameState==='clear') {
+        ctx.fillStyle='rgba(0,0,0,0.6)'; ctx.fillRect(0,0,GW,GH);
+        ctx.fillStyle='#FFDD00'; ctx.font='bold 28px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+        ctx.fillText('🎉 部屋中にばら撒いた！', GW/2, GH/2-20);
+        if (candyResultTimer<=0) {
+            ctx.fillStyle='rgba(255,255,255,0.7)'; ctx.font='16px sans-serif';
+            ctx.fillText('👆 タップして戻る', GW/2, GH/2+28);
+        }
+    }
+}
+
 function updateMini(dt) {
     if (MINI_TASKS.every(t => t.done)) {
         if (MINI_TASKS[0].done) brushPenaltyHalf = true;
@@ -903,6 +1055,7 @@ function update(dt) {
     else if (gameState === 'mini') updateMini(dt);
     else if (gameState === 'shooting') updateShooting(dt);
     else if (gameState === 'amida') updateAmida(dt);
+    else if (gameState === 'candy') updateCandyGame(dt);
 }
 
 function buildToothPath(t) {
@@ -1562,8 +1715,8 @@ function drawMini() {
             ctx.fillStyle='rgba(255,220,80,.9)'; ctx.font='bold 14px sans-serif'; ctx.textAlign='right'; ctx.textBaseline='top';
             ctx.fillText('👆 タップして挑戦！', cx+cw-14, cy+12);
         } else {
-            ctx.fillStyle='rgba(255,255,255,.3)'; ctx.font='14px sans-serif'; ctx.textAlign='right'; ctx.textBaseline='top';
-            ctx.fillText('👆 連打！', cx+cw-14, cy+12);
+            ctx.fillStyle='rgba(255,220,80,.9)'; ctx.font='bold 14px sans-serif'; ctx.textAlign='right'; ctx.textBaseline='top';
+            ctx.fillText('👆 タップして挑戦！', cx+cw-14, cy+12);
         }
         ctx.restore();
     }
@@ -1723,6 +1876,7 @@ function draw() {
     if (gameState === 'mini')  { drawMini();  return; }
     if (gameState === 'shooting') { drawShooting(); return; }
     if (gameState === 'amida') { drawAmida(); return; }
+    if (gameState === 'candy') { drawCandyGame(); return; }
     if (gameState === 'clear') { drawClear(); return; }
     drawPlay();
 }
