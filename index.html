@@ -191,7 +191,7 @@ function onCanvasTap(x, y) {
     if (gameState === 'amida') { handleAmidaTap(x, y); }
 }
 // シューティング用タッチゾーン追跡
-let shootZoneLeft = false, shootZoneRight = false;
+let shootZoneLeft = false, shootZoneRight = false, shootZoneFire = false;
 const SHOOT_BTN_Y = 390; // ボタンのY開始位置（canvas座標）
 function getShootZone(x, y) {
     if (y < SHOOT_BTN_Y) return 'none';
@@ -210,7 +210,7 @@ canvas.addEventListener('touchstart', e => {
             const z = getShootZone(cx, cy);
             if (z === 'left')  { shootZoneLeft  = true; continue; }
             if (z === 'right') { shootZoneRight = true; continue; }
-            if (z === 'fire')  { handleShootingTap(cx, cy); continue; }
+            if (z === 'fire')  { shootZoneFire = true; handleShootingTap(cx, cy); continue; }
         }
         onCanvasTap(cx, cy);
     }
@@ -224,22 +224,22 @@ canvas.addEventListener('touchend', e => {
         const z = getShootZone(cx, cy);
         if (z === 'left')  shootZoneLeft  = false;
         if (z === 'right') shootZoneRight = false;
-        // ゾーン外でtouchendしても両方リセット（指を滑らせた場合）
-        if (z === 'none') { shootZoneLeft = false; shootZoneRight = false; }
+        if (z === 'fire')  shootZoneFire  = false;
+        if (z === 'none') { shootZoneLeft = false; shootZoneRight = false; shootZoneFire = false; }
     }
 }, { passive: false });
-canvas.addEventListener('touchcancel', () => { shootZoneLeft = false; shootZoneRight = false; });
+canvas.addEventListener('touchcancel', () => { shootZoneLeft = false; shootZoneRight = false; shootZoneFire = false; });
 canvas.addEventListener('mousedown', e => {
     const { x, y } = getCanvasXY(e);
     if (gameState === 'shooting') {
         const z = getShootZone(x, y);
         if (z === 'left')  { shootZoneLeft  = true; return; }
         if (z === 'right') { shootZoneRight = true; return; }
-        if (z === 'fire')  { handleShootingTap(x, y); return; }
+        if (z === 'fire')  { shootZoneFire = true; handleShootingTap(x, y); return; }
     }
     onCanvasTap(x, y);
 });
-canvas.addEventListener('mouseup', () => { shootZoneLeft = false; shootZoneRight = false; });
+canvas.addEventListener('mouseup', () => { shootZoneLeft = false; shootZoneRight = false; shootZoneFire = false; });
 
 function handleMiniTap(x, y) {
     for (let i = 0; i < MINI_TASKS.length; i++) {
@@ -431,7 +431,7 @@ let shootingBangs = []; // 爆発エフェクト {x, y, t}
 
 function exitShooting() {
     gameState = 'mini';
-    shootZoneLeft = false; shootZoneRight = false;
+    shootZoneLeft = false; shootZoneRight = false; shootZoneFire = false;
 }
 
 function initShooting() {
@@ -451,7 +451,7 @@ function initShooting() {
     shootingTimer = SHOOTING_TIME; shootingShot = 0; shootingElapsed = 0;
     shootingState = 'play'; shootingResultTimer = 0;
     gameState = 'shooting';
-    shootZoneLeft = false; shootZoneRight = false;
+    shootZoneLeft = false; shootZoneRight = false; shootZoneFire = false;
 }
 
 function handleShootingTap(x, y) {
@@ -475,8 +475,12 @@ function updateShooting(dt) {
     // カーソル移動
     if (shootZoneLeft)  cursorX = Math.max(30, cursorX - 420 * dt);
     if (shootZoneRight) cursorX = Math.min(GW-30, cursorX + 420 * dt);
-    // 撃つ（handleShootingTapから呼ばれる）
+    // 撃つ（押しっぱなし連射）
     if (shootCooldown > 0) shootCooldown -= dt;
+    if (shootZoneFire && shootCooldown <= 0) {
+        shooterBullets.push({ x:cursorX, y:GH + 5, vx:0, vy:-720 });
+        shootCooldown = 0.18;
+    }
     // 弾移動
     for (let i=shooterBullets.length-1; i>=0; i--) {
         const b=shooterBullets[i]; b.y+=b.vy*dt;
