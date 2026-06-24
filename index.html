@@ -187,6 +187,7 @@ function onCanvasTap(x, y) {
     }
     if (gameState === 'clear') { gameState = 'title'; setButtons(false); return; }
     if (gameState === 'mini')  { handleMiniTap(x, y); }
+    if (gameState === 'shooting') { handleShootingTap(x, y); }
     if (gameState === 'amida') { handleAmidaTap(x, y); }
 }
 canvas.addEventListener('touchstart', e => {
@@ -209,6 +210,9 @@ function handleMiniTap(x, y) {
         const cy = cardY(i);
         if (x >= CX && x <= CX + CW && y >= cy && y <= cy + CH) {
             const t = MINI_TASKS[i];
+            if (i === 0 && !t.done) {
+                initShooting(); return;
+            }
             if (i === 2 && !t.done) {
                 initAmida(); gameState = 'amida'; return;
             }
@@ -376,6 +380,106 @@ function updateCandies(dt) {
             score += c.pts;
             spawnPopup(c.x, dy2, '+' + c.pts + '点');
             candies.splice(i, 1);
+        }
+    }
+}
+
+// ===== シューティングミニゲーム =====
+const SHOOTING_TOTAL = 10, SHOOTING_TIME = 25;
+let shooterX = GW/2, shooterBullets = [], shootingPastes = [];
+let shootingTimer = 0, shootingShot = 0;
+let shootingState = 'play'; // 'play'|'clear'|'fail'
+let shootingResultTimer = 0;
+
+function initShooting() {
+    shooterX = GW/2; shooterBullets = []; shootingPastes = [];
+    for (let i=0; i<SHOOTING_TOTAL; i++) {
+        shootingPastes.push({ x:60+Math.random()*(GW-120), y:-60-i*60, vy:90+Math.random()*80, alive:true });
+    }
+    shootingTimer = SHOOTING_TIME; shootingShot = 0;
+    shootingState = 'play'; shootingResultTimer = 0;
+    gameState = 'shooting';
+}
+
+function handleShootingTap(x, y) {
+    if (shootingState !== 'play') { if (shootingResultTimer <= 0) gameState = 'mini'; return; }
+    shooterX = Math.max(40, Math.min(GW-40, x));
+    const sy = GH-55;
+    const dx = x-shooterX, dy = y-sy, len = Math.sqrt(dx*dx+dy*dy)||1;
+    shooterBullets.push({ x:shooterX, y:sy, vx:(dx/len)*650, vy:Math.min((dy/len)*650,-180) });
+}
+
+function updateShooting(dt) {
+    if (shootingState !== 'play') { shootingResultTimer -= dt; return; }
+    shootingTimer -= dt;
+    for (let i=shooterBullets.length-1; i>=0; i--) {
+        const b=shooterBullets[i]; b.x+=b.vx*dt; b.y+=b.vy*dt;
+        if (b.y<-20||b.x<-20||b.x>GW+20) shooterBullets.splice(i,1);
+    }
+    for (const p of shootingPastes) {
+        if (!p.alive) continue;
+        p.y += p.vy*dt;
+        if (p.y > GH+50) { p.y=-60-Math.random()*80; p.x=60+Math.random()*(GW-120); }
+    }
+    for (let bi=shooterBullets.length-1; bi>=0; bi--) {
+        const b=shooterBullets[bi]; let hit=false;
+        for (const p of shootingPastes) {
+            if (!p.alive) continue;
+            if (Math.abs(b.x-p.x)<30&&Math.abs(b.y-p.y)<30) { p.alive=false; shootingShot++; hit=true; break; }
+        }
+        if (hit) shooterBullets.splice(bi,1);
+    }
+    if (shootingShot>=SHOOTING_TOTAL) {
+        shootingState='clear'; shootingResultTimer=2.5;
+        MINI_TASKS[0].done=true; MINI_TASKS[0].progress=100; return;
+    }
+    if (shootingTimer<=0) { shootingState='fail'; shootingResultTimer=2.5; }
+}
+
+function drawShooting() {
+    ctx.fillStyle='#0a1428'; ctx.fillRect(0,0,GW,GH);
+    ctx.strokeStyle='rgba(0,100,255,0.1)'; ctx.lineWidth=1;
+    for (let gx=0;gx<GW;gx+=40){ctx.beginPath();ctx.moveTo(gx,0);ctx.lineTo(gx,GH);ctx.stroke();}
+    for (let gy=0;gy<GH;gy+=40){ctx.beginPath();ctx.moveTo(0,gy);ctx.lineTo(GW,gy);ctx.stroke();}
+
+    ctx.fillStyle='#FF8888'; ctx.font='bold 20px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='top';
+    ctx.fillText('🪥 歯磨き粉シューティング！', GW/2, 12);
+    const rem=Math.max(0,shootingTimer);
+    ctx.fillStyle=rem<5?'#FF4444':'#FFE040'; ctx.font='bold 15px sans-serif';
+    ctx.fillText('残り '+Math.ceil(rem)+'秒　|　残り '+(SHOOTING_TOTAL-shootingShot)+'個', GW/2, 40);
+
+    for (const p of shootingPastes) {
+        if (!p.alive) continue;
+        ctx.save(); ctx.translate(p.x, p.y);
+        ctx.fillStyle='#FFFFFF'; ctx.beginPath(); rrect(-18,-30,36,44,8); ctx.fill();
+        ctx.fillStyle='#2288EE'; ctx.beginPath(); rrect(-18,-30,36,16,5); ctx.fill();
+        ctx.fillStyle='#CCEEFF'; ctx.beginPath(); rrect(-14,-30,28,10,4); ctx.fill();
+        ctx.fillStyle='#FFFFFF'; ctx.fillRect(-7,14,14,8);
+        ctx.fillStyle='#00264d'; ctx.font='bold 9px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+        ctx.fillText('歯磨粉', 0, -6);
+        ctx.restore();
+    }
+
+    for (const b of shooterBullets) {
+        ctx.save(); ctx.fillStyle='#FFE040'; ctx.shadowColor='#FF8800'; ctx.shadowBlur=10;
+        ctx.beginPath(); ctx.arc(b.x,b.y,5,0,Math.PI*2); ctx.fill(); ctx.restore();
+    }
+
+    ctx.save(); ctx.translate(shooterX, GH-55);
+    ctx.fillStyle='#334455'; ctx.beginPath(); rrect(-22,-18,44,36,8); ctx.fill();
+    ctx.fillStyle='#5588AA'; ctx.beginPath(); rrect(-16,-13,32,26,5); ctx.fill();
+    ctx.fillStyle='#889966'; ctx.fillRect(-5,-32,10,20);
+    ctx.font='22px serif'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText('🦠',0,5);
+    ctx.restore();
+
+    if (shootingState!=='play') {
+        ctx.fillStyle='rgba(0,0,0,0.62)'; ctx.fillRect(0,0,GW,GH);
+        ctx.fillStyle=shootingState==='clear'?'#44FF88':'#FF4466';
+        ctx.font='bold 30px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+        ctx.fillText(shootingState==='clear'?'✅ 全部捨てた！':'⏰ タイムアップ！', GW/2, GH/2-20);
+        if (shootingResultTimer<=0) {
+            ctx.fillStyle='rgba(255,255,255,0.7)'; ctx.font='16px sans-serif';
+            ctx.fillText('👆 タップして戻る', GW/2, GH/2+28);
         }
     }
 }
@@ -681,6 +785,7 @@ function updatePlay(dt) {
 function update(dt) {
     if (gameState === 'play') updatePlay(dt);
     else if (gameState === 'mini') updateMini(dt);
+    else if (gameState === 'shooting') updateShooting(dt);
     else if (gameState === 'amida') updateAmida(dt);
 }
 
@@ -1339,7 +1444,7 @@ function drawMini() {
         if (task.done) {
             ctx.fillStyle='#44FF44'; ctx.font='bold 18px sans-serif'; ctx.textAlign='right'; ctx.textBaseline='top';
             ctx.fillText('✓ クリア！', cx+cw-14, cy+12);
-        } else if (i === 2) {
+        } else if (i === 0 || i === 2) {
             ctx.fillStyle='rgba(255,220,80,.9)'; ctx.font='bold 14px sans-serif'; ctx.textAlign='right'; ctx.textBaseline='top';
             ctx.fillText('👆 タップして挑戦！', cx+cw-14, cy+12);
         } else {
@@ -1502,6 +1607,7 @@ function draw() {
     if (gameState === 'title') { drawTitle(); return; }
     if (gameState === 'howto') { drawHowto(); return; }
     if (gameState === 'mini')  { drawMini();  return; }
+    if (gameState === 'shooting') { drawShooting(); return; }
     if (gameState === 'amida') { drawAmida(); return; }
     if (gameState === 'clear') { drawClear(); return; }
     drawPlay();
