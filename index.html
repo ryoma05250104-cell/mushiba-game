@@ -791,9 +791,17 @@ function drawAmida() {
             const ok = amidaResultOf[amidaSelected]===amidaPhoneBottom;
             ctx.fillStyle=ok?'#44FF88':'#FF4466';
             ctx.font='bold 26px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
-            ctx.fillText(ok?'✅ キャンセル成功！':'📵 つながらなかった…', GW/2, AMIDA_BOT_Y+105);
+            if (ok) {
+                ctx.fillStyle='#FFDD00'; ctx.font='bold 28px sans-serif';
+                ctx.fillText('🎉 大成功！', GW/2, AMIDA_BOT_Y+80);
+                ctx.fillStyle='#44FF88'; ctx.font='bold 22px sans-serif';
+                ctx.fillText('✅ キャンセル成功！', GW/2, AMIDA_BOT_Y+115);
+            } else {
+                ctx.fillStyle='#FF4466'; ctx.font='bold 26px sans-serif';
+                ctx.fillText('📵 つながらなかった…', GW/2, AMIDA_BOT_Y+105);
+            }
             ctx.fillStyle='rgba(255,255,255,0.7)'; ctx.font='15px sans-serif';
-            ctx.fillText('👆 タップして戻る', GW/2, AMIDA_BOT_Y+140);
+            ctx.fillText('👆 タップして戻る', GW/2, AMIDA_BOT_Y+148);
         }
     }
 
