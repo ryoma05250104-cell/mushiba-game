@@ -126,7 +126,7 @@ function startGame() {
     score = 0; lastATK = 1; ATK = 1;
     superMode = false; superModeAnnounced = false;
     candyDouble = false; brushPenaltyHalf = false;
-    miniTriggered = false; miniCutInTimer = 0;
+    miniTriggered = false; miniCutInTimer = 0; amidaAttempted = false;
     pAnim.phase=0; pAnim.sqX=1; pAnim.sqY=1; pAnim.tilt=0; pAnim.prevGround=false; pAnim.facing=1;
     clearTime = 0;
     mkTeeth();
@@ -249,7 +249,7 @@ function handleMiniTap(x, y) {
             if (i === 0 && !t.done) {
                 initShooting(); return;
             }
-            if (i === 2 && !t.done) {
+            if (i === 2 && !t.done && !amidaAttempted) {
                 initAmida(); gameState = 'amida'; return;
             }
             if (!t.done) {
@@ -608,6 +608,7 @@ let amidaBars = [];
 let amidaResultOf = [0,1,2];
 let amidaPhoneBottom = 0;
 let amidaRevealT = 0;
+let amidaAttempted = false;
 const AMIDA_REVEAL_DUR = 1.8;
 let amidaCutinTimer = 0;
 
@@ -682,6 +683,8 @@ function updateAmida(dt) {
             if (amidaResultOf[amidaSelected] === amidaPhoneBottom) {
                 MINI_TASKS[2].done = true; MINI_TASKS[2].progress = 100;
                 amidaCutinTimer = 3.5;
+            } else {
+                amidaAttempted = true;
             }
         }
     }
@@ -1552,6 +1555,9 @@ function drawMini() {
         if (task.done) {
             ctx.fillStyle='#44FF44'; ctx.font='bold 18px sans-serif'; ctx.textAlign='right'; ctx.textBaseline='top';
             ctx.fillText('✓ クリア！', cx+cw-14, cy+12);
+        } else if (i === 2 && amidaAttempted) {
+            ctx.fillStyle='rgba(255,80,80,.9)'; ctx.font='bold 14px sans-serif'; ctx.textAlign='right'; ctx.textBaseline='top';
+            ctx.fillText('📵 失敗…再挑戦不可', cx+cw-14, cy+12);
         } else if (i === 0 || i === 2) {
             ctx.fillStyle='rgba(255,220,80,.9)'; ctx.font='bold 14px sans-serif'; ctx.textAlign='right'; ctx.textBaseline='top';
             ctx.fillText('👆 タップして挑戦！', cx+cw-14, cy+12);
