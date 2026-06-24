@@ -457,7 +457,7 @@ function initShooting() {
 function handleShootingTap(x, y) {
     if (shootingState !== 'play') { if (shootingResultTimer <= 0) exitShooting(); return; }
     if (shootCooldown <= 0) {
-        shooterBullets.push({ x:cursorX, y:SHOOT_BTN_Y - 20, vx:0, vy:-720 });
+        shooterBullets.push({ x:cursorX, y:GH + 5, vx:0, vy:-720 });
         shootCooldown = 0.18;
     }
 }
@@ -568,20 +568,14 @@ function drawShooting() {
     ctx.fillStyle='#FFF'; ctx.font='bold 18px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
     ctx.fillText('💥 撃つ', GW/2, SHOOT_BTN_Y + BH/2);
 
-    // カーソル（照準）
-    const cy2 = SHOOT_BTN_Y - 18;
+    // カーソル（画面外から照準線のみ表示）
     ctx.save();
-    // 照準線（点線）
-    ctx.strokeStyle='rgba(255,220,0,0.5)'; ctx.lineWidth=1; ctx.setLineDash([5,5]);
-    ctx.beginPath(); ctx.moveTo(cursorX, cy2-18); ctx.lineTo(cursorX, 70); ctx.stroke();
+    ctx.strokeStyle='rgba(255,220,0,0.55)'; ctx.lineWidth=1.5; ctx.setLineDash([6,5]);
+    ctx.beginPath(); ctx.moveTo(cursorX, GH); ctx.lineTo(cursorX, 60); ctx.stroke();
     ctx.setLineDash([]);
-    // 砲台
-    ctx.translate(cursorX, cy2);
-    ctx.fillStyle='#556677'; ctx.beginPath(); rrect(-22,-16,44,32,6); ctx.fill();
-    ctx.fillStyle='#7799AA'; ctx.beginPath(); rrect(-16,-11,32,22,4); ctx.fill();
-    ctx.fillStyle='#AABB66'; ctx.fillRect(-4,-30,8,18);
-    ctx.font='20px serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
-    ctx.fillText('🦠', 0, 4);
+    // 下端の位置インジケーター（▲）
+    ctx.fillStyle='#FFE040';
+    ctx.beginPath(); ctx.moveTo(cursorX, GH-2); ctx.lineTo(cursorX-10, GH+12); ctx.lineTo(cursorX+10, GH+12); ctx.closePath(); ctx.fill();
     ctx.restore();
 
     if (shootingState!=='play') {
