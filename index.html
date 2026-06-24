@@ -590,14 +590,21 @@ function drawShooting() {
     ctx.fillStyle='#FFF'; ctx.font='bold 20px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
     ctx.fillText('💥 撃つ', 448 + (GW-458)/2, MY);
 
-    // カーソル（画面外から照準線のみ表示）
+    // 主人公（ゲームエリア下端）
+    const charY = SHOOT_BTN_Y - 28;
     ctx.save();
-    ctx.strokeStyle='rgba(255,220,0,0.55)'; ctx.lineWidth=1.5; ctx.setLineDash([6,5]);
-    ctx.beginPath(); ctx.moveTo(cursorX, GH); ctx.lineTo(cursorX, 60); ctx.stroke();
-    ctx.setLineDash([]);
-    // 下端の位置インジケーター（▲）
+    ctx.font='26px serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText('🦠', cursorX, charY);
+    ctx.restore();
+    // カーソル▲（ボタン上端）
+    const triY = SHOOT_BTN_Y - 4;
+    ctx.save();
     ctx.fillStyle='#FFE040';
-    ctx.beginPath(); ctx.moveTo(cursorX, GH-2); ctx.lineTo(cursorX-10, GH+12); ctx.lineTo(cursorX+10, GH+12); ctx.closePath(); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(cursorX, triY); ctx.lineTo(cursorX-9, triY+14); ctx.lineTo(cursorX+9, triY+14); ctx.closePath(); ctx.fill();
+    // 照準線（主人公から上へ）
+    ctx.strokeStyle='rgba(255,220,0,0.45)'; ctx.lineWidth=1.5; ctx.setLineDash([6,5]);
+    ctx.beginPath(); ctx.moveTo(cursorX, charY - 16); ctx.lineTo(cursorX, 60); ctx.stroke();
+    ctx.setLineDash([]);
     ctx.restore();
 
     if (shootingState!=='play') {
@@ -942,10 +949,12 @@ function drawCandyGame() {
 }
 
 function updateMini(dt) {
-    if (MINI_TASKS.every(t => t.done)) {
+    // あみだ失敗でも他タスクが終われば脱出できる
+    const allResolved = MINI_TASKS.every((t, i) => t.done || (i === 2 && amidaAttempted));
+    if (allResolved) {
         if (MINI_TASKS[0].done) brushPenaltyHalf = true;
         if (MINI_TASKS[1].done) candyDouble = true;
-        superMode = true;
+        superMode = MINI_TASKS.every(t => t.done); // 3つ全部成功時のみスーパー
         const elapsed = (Date.now() - t0) / 1000;
         if (nextBrushTime <= elapsed + 5) nextBrushTime = elapsed + 15;
         gameState = 'play';
